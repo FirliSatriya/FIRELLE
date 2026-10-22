@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   LuPlus,
   LuList,
@@ -10,6 +10,7 @@ import {
 } from "react-icons/lu";
 import {
   Product,
+  ProductImage,
   UpdateProductInput,
   ALL_UNITS,
   calcMarginPercent,
@@ -18,6 +19,7 @@ import {
 } from "@/types/product";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
+import { listGallery } from "@/lib/supabase/product-images";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ProductImageManager } from "./ProductImageManager";
 
 interface EditProductDialogProps {
   product: Product;
@@ -56,6 +59,23 @@ export function EditProductDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [gallery, setGallery] = useState<ProductImage[]>(product.images);
+
+  // Re-read the gallery so a stale catalog list cannot hide a concurrent edit.
+  useEffect(() => {
+    let active = true;
+    listGallery(product.id)
+      .then((images) => {
+        if (active) setGallery(images);
+      })
+      .catch(() => {
+        // Keep whatever the catalog already supplied on failure.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [product.id, product.images]);
 
   const margin = useMemo(
     () => calcMarginPercent(form.selling_price, form.cost_price),
@@ -302,6 +322,14 @@ export function EditProductDialog({
               )}
             </div>
           )}
+
+          {/* Gambar Produk */}
+          <ProductImageManager
+            productId={product.id}
+            images={gallery}
+            onChange={setGallery}
+            disabled={saving}
+          />
 
           {/* Min Stock */}
           <div className="space-y-1.5">

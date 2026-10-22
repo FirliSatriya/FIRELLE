@@ -28,6 +28,34 @@ export type ProductUnit = (typeof ALL_UNITS)[number] | string;
 /** Stock status badge */
 export type StockStatus = "OUT" | "LOW" | "WARNING" | "OK";
 
+/** Gallery image limit per product (mirrors the DB trigger FR025) */
+export const MAX_PRODUCT_IMAGES = 8;
+
+/** Accepted upload MIME types (mirrors the Storage bucket allow-list) */
+export const PRODUCT_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+
+/** Accepted upload size in bytes (mirrors the Storage bucket limit) */
+export const MAX_PRODUCT_IMAGE_BYTES = 5 * 1024 * 1024;
+
+/** One gallery photo (PRD §4.B — `product_images` table) */
+export interface ProductImage {
+  id: string;
+  product_id: string;
+  /** Object path inside the `product-images` bucket. */
+  storage_path: string;
+  /** Resolved public URL, derived from the bucket + path. */
+  url: string;
+  alt_text: string | null;
+  position: number;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Product entity (PRD §4.B — `products` table) */
 export interface Product {
   id: string;
@@ -43,6 +71,29 @@ export interface Product {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Ordered gallery; the primary image (if any) always sorts first. */
+  images: ProductImage[];
+}
+
+/** Thumbnail URL for lists and POS cards, or null when the gallery is empty. */
+export function getPrimaryImageUrl(product: Product): string | null {
+  if (product.images.length === 0) return null;
+  const primary = product.images.find((img) => img.is_primary);
+  return (primary ?? product.images[0]).url;
+}
+
+/** Human-readable upload rejection reason, or null when the file is valid. */
+export function validateProductImageFile(file: {
+  type: string;
+  size: number;
+}): string | null {
+  if (!(PRODUCT_IMAGE_MIME_TYPES as readonly string[]).includes(file.type)) {
+    return "Format harus JPG, PNG, atau WebP.";
+  }
+  if (file.size > MAX_PRODUCT_IMAGE_BYTES) {
+    return "Ukuran gambar maksimal 5 MB.";
+  }
+  return null;
 }
 
 /** Stock movement entity (PRD §4.C — `stock_movements` table) */

@@ -2,6 +2,7 @@ import type { Database } from "@/types/database.types";
 import type {
   CreateProductInput,
   Product,
+  ProductImage,
   StockAdjustmentInput,
   StockMovement,
   UpdateProductInput,
@@ -19,13 +20,41 @@ export interface CurrentProfile {
 
 type ProductAdminRow = Database["public"]["Views"]["products_admin"]["Row"];
 type ProductCashierRow = Database["public"]["Views"]["products_cashier"]["Row"];
+type ImageRow = Database["public"]["Views"]["product_images_cashier"]["Row"];
+
+const BUCKET = "product-images";
 
 function toNumber(value: number | null | undefined): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function mapProduct(row: ProductAdminRow | ProductCashierRow): Product {
+/** Public URL for a stored object path inside the gallery bucket. */
+function imagePublicUrl(storagePath: string): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return "";
+  return `${url}/storage/v1/object/public/${BUCKET}/${storagePath}`;
+}
+
+function mapImage(row: ImageRow): ProductImage {
+  const path = row.storage_path ?? "";
+  return {
+    id: row.id ?? "",
+    product_id: row.product_id ?? "",
+    storage_path: path,
+    url: path ? imagePublicUrl(path) : "",
+    alt_text: row.alt_text,
+    position: row.position ?? 0,
+    is_primary: row.is_primary ?? false,
+    created_at: row.created_at ?? "",
+    updated_at: row.updated_at ?? "",
+  };
+}
+
+function mapProduct(
+  row: ProductAdminRow | ProductCashierRow,
+  images: ProductImage[] = []
+): Product {
   return {
     id: row.id ?? "",
     sku: row.sku,
@@ -40,7 +69,45 @@ function mapProduct(row: ProductAdminRow | ProductCashierRow): Product {
     deleted_at: row.deleted_at,
     created_at: row.created_at ?? "",
     updated_at: row.updated_at ?? "",
+    images,
   };
+}
+
+/** Primary-first ordering, matching `getPrimaryImageUrl`. */
+function sortImages(images: ProductImage[]): ProductImage[] {
+  return [...images].sort((a, b) => {
+    if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;
+    if (a.position !== b.position) return a.position - b.position;
+    return a.created_at.localeCompare(b.created_at);
+  });
+}
+
+/** Load the gallery for a set of products and key it by product id. */
+async function loadImagesByProduct(
+  productIds: string[]
+): Promise<Map<string, ProductImage[]>> {
+  if (productIds.length === 0) return new Map();
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("product_images_cashier")
+    .select("*")
+    .in("product_id", productIds);
+
+  if (error) throw error;
+
+  const grouped = new Map<string, ProductImage[]>();
+  for (const row of data ?? []) {
+    const image = mapImage(row);
+    const list = grouped.get(image.product_id) ?? [];
+    list.push(image);
+    grouped.set(image.product_id, list);
+  }
+
+  for (const [id, list] of grouped) {
+    grouped.set(id, sortImages(list));
+  }
+  return grouped;
 }
 
 /** Read the signed-in user's profile (role + active flag). */
@@ -77,7 +144,11 @@ export async function listProducts(role: AppRole): Promise<Product[]> {
       .order("name", { ascending: true });
 
     if (error) throw error;
-    return (data ?? []).map(mapProduct);
+    const rows = data ?? [];
+    const images = await loadImagesByProduct(
+      rows.map((r) => r.id).filter((id): id is string => Boolean(id))
+    );
+    return rows.map((row) => mapProduct(row, images.get(row.id ?? "") ?? []));
   }
 
   const { data, error } = await supabase
@@ -86,23 +157,51 @@ export async function listProducts(role: AppRole): Promise<Product[]> {
     .order("name", { ascending: true });
 
   if (error) throw error;
-  return (data ?? []).map(mapProduct);
+  const rows = data ?? [];
+  const images = await loadImagesByProduct(
+    rows.map((r) => r.id).filter((id): id is string => Boolean(id))
+  );
+  return rows.map((row) => mapProduct(row, images.get(row.id ?? "") ?? []));
 }
 
-export async function createProduct(input: CreateProductInput): Promise<void> {
+/** Insert a product and return it, including its (empty) gallery. */
+export async function createProduct(
+  input: CreateProductInput
+): Promise<Product> {
   const supabase = createClient();
-  const { error } = await supabase.from("products").insert({
-    name: input.name.trim(),
-    sku: input.sku?.trim() || null,
-    barcode: input.barcode?.trim() || null,
-    unit: input.unit,
-    cost_price: input.cost_price,
-    selling_price: input.selling_price,
-    stock: input.stock,
-    min_stock: input.min_stock,
-  });
+  const { data, error } = await supabase
+    .from("products")
+    .insert({
+      name: input.name.trim(),
+      sku: input.sku?.trim() || null,
+      barcode: input.barcode?.trim() || null,
+      unit: input.unit,
+      cost_price: input.cost_price,
+      selling_price: input.selling_price,
+      stock: input.stock,
+      min_stock: input.min_stock,
+    })
+    .select("*")
+    .single();
 
   if (error) throw error;
+
+  return {
+    id: data.id,
+    sku: data.sku,
+    barcode: data.barcode,
+    name: data.name,
+    unit: data.unit,
+    cost_price: toNumber(data.cost_price),
+    selling_price: toNumber(data.selling_price),
+    stock: toNumber(data.stock),
+    min_stock: toNumber(data.min_stock),
+    is_deleted: data.is_deleted,
+    deleted_at: data.deleted_at,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    images: [],
+  };
 }
 
 export async function updateProduct(

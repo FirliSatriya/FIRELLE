@@ -53,6 +53,7 @@ needed. Otherwise pass `--db-url` or `--password`.
 | `20261022140000_transaction_functions.sql` | Final atomic checkout/void definitions; `FR021 INVALID_PAYMENT` |
 | `20261022150000_rls_matrix_guards.sql` | Final RLS matrix, cashier-safe products, last-admin and transaction-delete guards |
 | `20261022160000_protect_walkin_client.sql` | Makes the seeded walk-in client immutable; `FR024 WALK_IN_CLIENT_PROTECTED` |
+| `20261022170000_product_images.sql` | `product_images` gallery + `product-images` Storage bucket; `FR025 TOO_MANY_PRODUCT_IMAGES` |
 
 One concern per file, timestamped and idempotent. Applied migrations are
 history: change them only with a new migration.
@@ -70,8 +71,9 @@ history: change them only with a new migration.
 
 ### Tables
 
-`users`, `clients`, `products`, `invoice_counters`, `transactions`,
-`transaction_items`, `stock_movements`, `cashflows`, `settings`.
+`users`, `clients`, `products`, `product_images`, `invoice_counters`,
+`transactions`, `transaction_items`, `stock_movements`, `cashflows`,
+`settings`.
 
 - `users.id` is the `auth.users.id` (1:1 profile); `is_active` blocks access.
 - `clients` archives with `is_active = false`; a partial unique index allows
@@ -79,6 +81,9 @@ history: change them only with a new migration.
   deleting that row (`FR024`).
 - `products` uses `is_deleted` + `deleted_at` (kept consistent by a CHECK);
   SKU is unique only among active rows.
+- `product_images` is the ordered product gallery (max 8 per product, `FR025`);
+  files live in the public `product-images` Storage bucket and only ADMIN may
+  write either the rows or the bucket objects.
 - `transactions` stores `client_name` and all money totals as snapshots. No
   tax column: totals are `subtotal_amount - discount_amount`.
 - `transaction_items` stores product/unit/price/cost snapshots; `subtotal`

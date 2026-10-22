@@ -8,6 +8,7 @@ import {
   LuArrowUpRight,
   LuClock,
   LuPackage,
+  LuImage,
 } from "react-icons/lu";
 import {
   Product,
@@ -18,6 +19,7 @@ import {
   calcMarginPercent,
   calcMarkupPercent,
   isDecimalUnit,
+  getPrimaryImageUrl,
 } from "@/types/product";
 import { MOVEMENT_TYPE_LABELS, REASON_LABELS } from "@/lib/mock-data";
 import { formatDateWIB, cn } from "@/lib/utils";
@@ -81,6 +83,46 @@ export function ProductDetailDrawer({
 
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Product image gallery */}
+          {product.images.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-secondary/20 py-10 text-muted-foreground">
+              <LuImage size={32} className="opacity-50" />
+              <span className="text-xs">Belum ada gambar untuk produk ini</span>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="overflow-hidden rounded-xl border border-border/80 bg-secondary/30">
+                {/* eslint-disable-next-line @next/next/no-img-element -- Supabase Storage URL */}
+                <img
+                  src={getPrimaryImageUrl(product) as string}
+                  alt={product.name}
+                  className="aspect-4/3 w-full object-cover"
+                />
+              </div>
+              {product.images.length > 1 && (
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  {product.images.map((image) => (
+                    <div
+                      key={image.id}
+                      className={cn(
+                        "relative aspect-square overflow-hidden rounded-lg border bg-secondary/30",
+                        image.is_primary ? "border-primary" : "border-border/70"
+                      )}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- Supabase Storage URL */}
+                      <img
+                        src={image.url}
+                        alt={image.alt_text || product.name}
+                        className="size-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Quick Info Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <div className="rounded-lg border border-border/70 bg-secondary/40 p-3">

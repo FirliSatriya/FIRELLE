@@ -20,6 +20,7 @@ import {
   LuChevronLeft,
   LuChevronRight,
   LuPackageSearch,
+  LuImage,
 } from "react-icons/lu";
 import {
   Product,
@@ -33,6 +34,7 @@ import {
   formatRupiah,
   formatNumber,
   calcMarginPercent,
+  getPrimaryImageUrl,
 } from "@/types/product";
 import { cn } from "@/lib/utils";
 import { useDebouncedSearch, usePagination } from "@/lib/hooks";
@@ -50,6 +52,7 @@ import {
   updateProduct,
 } from "@/lib/supabase/products";
 import { StockBadge } from "./StockBadge";
+import { uploadProductImage } from "@/lib/supabase/product-images";
 import { CreateProductDialog } from "./CreateProductDialog";
 import { EditProductDialog } from "./EditProductDialog";
 import { StockAdjustmentDialog } from "./StockAdjustmentDialog";
@@ -135,6 +138,12 @@ export function ProductCatalog() {
         if (!profile || !profile.isActive) {
           await supabase.auth.signOut();
           router.replace("/login");
+          return;
+        }
+
+        // Product management is ADMIN-only (RBAC §2). Cashiers belong on the POS.
+        if (profile.role !== "ADMIN") {
+          router.replace("/pos");
           return;
         }
 
@@ -250,8 +259,17 @@ export function ProductCatalog() {
     }
   };
 
-  const handleCreate = async (input: CreateProductInput) => {
-    await createProduct(input);
+  const handleCreate = async (input: CreateProductInput, files: File[] = []) => {
+    const created = await createProduct(input);
+
+    // Upload the queued gallery only after the product id exists.
+    for (let i = 0; i < files.length; i++) {
+      await uploadProductImage(created.id, files[i], {
+        makePrimary: i === 0,
+        position: i,
+      });
+    }
+
     await refreshProducts();
     setCreateOpen(false);
   };
@@ -443,6 +461,7 @@ export function ProductCatalog() {
         <table className="product-table">
           <thead>
             <tr>
+              <th className="text-center">Gambar</th>
               <th onClick={() => handleSort("name")} className="sortable">
                 Nama <SortIcon sortField={sortField} sortDir={sortDir} field="name" />
               </th>
@@ -478,7 +497,7 @@ export function ProductCatalog() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="empty-state">
+                <td colSpan={10} className="empty-state">
                   <div className="empty-icon" aria-hidden="true">
                     <LuPackageSearch size={44} />
                   </div>
@@ -487,7 +506,7 @@ export function ProductCatalog() {
               </tr>
             ) : loadError ? (
               <tr>
-                <td colSpan={9} className="empty-state">
+                <td colSpan={10} className="empty-state">
                   <div className="empty-icon text-destructive" aria-hidden="true">
                     <LuTriangleAlert size={44} />
                   </div>
@@ -505,7 +524,7 @@ export function ProductCatalog() {
               </tr>
             ) : pagedProducts.length === 0 ? (
               <tr>
-                <td colSpan={9} className="empty-state">
+                <td colSpan={10} className="empty-state">
                   <div className="empty-icon" aria-hidden="true">
                     <LuPackageSearch size={44} />
                   </div>
@@ -537,6 +556,22 @@ export function ProductCatalog() {
                       product.is_deleted && "archived-row"
                     )}
                   >
+                    <td>
+                      <div className="product-thumb">
+                        {getPrimaryImageUrl(product) ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- Supabase Storage URL
+                          <img
+                            src={getPrimaryImageUrl(product) as string}
+                            alt={product.name}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="product-thumb-empty" aria-hidden="true">
+                            <LuImage size={16} />
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td>
                       <button
                         className="product-name-link font-medium text-left"

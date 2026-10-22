@@ -26,10 +26,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ProductImageManager } from "./ProductImageManager";
 
 interface CreateProductDialogProps {
   onClose: () => void;
-  onCreate: (product: CreateProductInput) => void | Promise<void>;
+  onCreate: (product: CreateProductInput, files: File[]) => void | Promise<void>;
 }
 
 export function CreateProductDialog({ onClose, onCreate }: CreateProductDialogProps) {
@@ -48,6 +49,7 @@ export function CreateProductDialog({ onClose, onCreate }: CreateProductDialogPr
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const margin = useMemo(
     () => calcMarginPercent(form.selling_price, form.cost_price),
@@ -92,16 +94,19 @@ export function CreateProductDialog({ onClose, onCreate }: CreateProductDialogPr
     const unit = useCustomUnit ? customUnit.trim() : form.unit;
     setSaving(true);
     try {
-      await onCreate({
-        sku: form.sku?.trim() || undefined,
-        barcode: form.barcode?.trim() || undefined,
-        name: form.name.trim(),
-        unit,
-        cost_price: form.cost_price,
-        selling_price: form.selling_price,
-        stock: form.stock,
-        min_stock: form.min_stock,
-      });
+      await onCreate(
+        {
+          sku: form.sku?.trim() || undefined,
+          barcode: form.barcode?.trim() || undefined,
+          name: form.name.trim(),
+          unit,
+          cost_price: form.cost_price,
+          selling_price: form.selling_price,
+          stock: form.stock,
+          min_stock: form.min_stock,
+        },
+        pendingFiles
+      );
     } catch (err) {
       setSubmitError(getErrorMessage(err));
     } finally {
@@ -342,6 +347,16 @@ export function CreateProductDialog({ onClose, onCreate }: CreateProductDialogPr
               {errors.min_stock && <p className="text-xs text-destructive">{errors.min_stock}</p>}
             </div>
           </div>
+
+          {/* Gambar Produk (diunggah setelah produk dibuat) */}
+          <ProductImageManager
+            productId={null}
+            images={[]}
+            onChange={() => {}}
+            pendingFiles={pendingFiles}
+            onPendingFilesChange={setPendingFiles}
+            disabled={saving}
+          />
 
           {submitError && (
             <div
