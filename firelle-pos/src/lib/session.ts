@@ -4,14 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentProfile, type AppRole, type CurrentProfile } from "@/lib/supabase/products";
+import { LOGIN_PATH, landingFor } from "@/lib/navigation";
 
-/** Halaman login — satu-satunya tujuan redirect untuk sesi yang tidak valid. */
-export const LOGIN_PATH = "/login";
-
-/** Landing page per role: kasir menjual, admin mengelola (RBAC §2). */
-export function landingFor(role: AppRole | null | undefined): string {
-  return role === "ADMIN" ? "/products" : "/pos";
-}
+export { LOGIN_PATH, landingFor };
 
 export interface SessionState {
   loading: boolean;

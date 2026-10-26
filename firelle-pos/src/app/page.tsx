@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { LOGIN_PATH } from "@/lib/session";
+import { LOGIN_PATH } from "@/lib/navigation";
 
 /**
  * Akar situs adalah gerbang aplikasi: pengunjung mendarat di halaman login.
