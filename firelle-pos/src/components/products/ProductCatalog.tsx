@@ -45,6 +45,7 @@ import {
   adjustStock,
   archiveProduct,
   createProduct,
+  deleteProductPermanently,
   getCurrentProfile,
   listProducts,
   listStockMovements,
@@ -58,6 +59,7 @@ import { EditProductDialog } from "./EditProductDialog";
 import { StockAdjustmentDialog } from "./StockAdjustmentDialog";
 import { ProductDetailDrawer } from "./ProductDetailDrawer";
 import { DeleteProductDialog } from "./DeleteProductDialog";
+import { PermanentDeleteProductDialog } from "./PermanentDeleteProductDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -106,6 +108,7 @@ export function ProductCatalog() {
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
+  const [purgeProduct, setPurgeProduct] = useState<Product | null>(null);
 
   const canManage = role === "ADMIN";
 
@@ -311,6 +314,14 @@ export function ProductCatalog() {
     } catch (err) {
       setActionError(getErrorMessage(err));
     }
+  };
+
+  const handlePermanentDelete = async (productId: string) => {
+    setActionError(null);
+    await deleteProductPermanently(productId);
+    await refreshProducts();
+    setPurgeProduct(null);
+    if (detailProduct?.id === productId) setDetailProduct(null);
   };
 
   // ─── Stats ─────────────────────────────────────
@@ -618,15 +629,28 @@ export function ProductCatalog() {
                       {!canManage ? (
                         <span className="text-muted">—</span>
                       ) : product.is_deleted ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRestore(product.id)}
-                          className="gap-1.5 text-success-foreground border-success/30 hover:bg-success/10"
-                        >
-                          <LuRotateCcw size={14} />
-                          <span>Pulihkan</span>
-                        </Button>
+                        <div className="action-buttons flex items-center justify-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRestore(product.id)}
+                            className="gap-1.5 text-success-foreground border-success/30 hover:bg-success/10"
+                          >
+                            <LuRotateCcw size={14} />
+                            <span>Pulihkan</span>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            title="Hapus permanen"
+                            onClick={() => setPurgeProduct(product)}
+                            aria-label={`Hapus permanen ${product.name}`}
+                            className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                          >
+                            <LuTrash2 size={14} />
+                            <span>Hapus Permanen</span>
+                          </Button>
+                        </div>
                       ) : (
                         <div className="action-buttons flex items-center justify-center gap-1">
                           <Button
@@ -751,6 +775,14 @@ export function ProductCatalog() {
           product={deleteProduct}
           onClose={() => setDeleteProduct(null)}
           onDelete={handleDelete}
+        />
+      )}
+
+      {purgeProduct && canManage && (
+        <PermanentDeleteProductDialog
+          product={purgeProduct}
+          onClose={() => setPurgeProduct(null)}
+          onDelete={handlePermanentDelete}
         />
       )}
     </div>

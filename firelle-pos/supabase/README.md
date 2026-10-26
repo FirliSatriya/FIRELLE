@@ -54,6 +54,8 @@ needed. Otherwise pass `--db-url` or `--password`.
 | `20261022150000_rls_matrix_guards.sql` | Final RLS matrix, cashier-safe products, last-admin and transaction-delete guards |
 | `20261022160000_protect_walkin_client.sql` | Makes the seeded walk-in client immutable; `FR024 WALK_IN_CLIENT_PROTECTED` |
 | `20261022170000_product_images.sql` | `product_images` gallery + `product-images` Storage bucket; `FR025 TOO_MANY_PRODUCT_IMAGES` |
+| `20261026120000_permanent_product_delete.sql` | ADMIN hard delete for archived products without sales history; `FR026`/`FR027` |
+| `20261026130000_retire_walk_in_client.sql` | Removes the walk-in client and its guard; every sale needs a real client |
 
 One concern per file, timestamped and idempotent. Applied migrations are
 history: change them only with a new migration.
@@ -76,9 +78,8 @@ history: change them only with a new migration.
 `settings`.
 
 - `users.id` is the `auth.users.id` (1:1 profile); `is_active` blocks access.
-- `clients` archives with `is_active = false`; a partial unique index allows
-  exactly one walk-in row, and a trigger prevents editing, deactivating or
-  deleting that row (`FR024`).
+- `clients` archives with `is_active = false`. `is_walk_in` is deprecated: the
+  walk-in row was removed and every sale now requires an explicit client.
 - `products` uses `is_deleted` + `deleted_at` (kept consistent by a CHECK);
   SKU is unique only among active rows.
 - `product_images` is the ordered product gallery (max 8 per product, `FR025`);
@@ -103,20 +104,26 @@ uses `ON DELETE CASCADE` because it mirrors identity, not financial history.
 | Function | Who | Purpose |
 | --- | --- | --- |
 | `next_invoice_number(date default WIB today)` | authenticated | Daily `INV-YYYYMMDD-NNN` sequence, row-locked |
-| `create_transaction(...)` | authenticated | Atomic sale: lock products, re-read prices, stock ledger, auto `IN` cashflow, idempotent by key |
+| `create_transaction(...)` | authenticated | Atomic sale: requires an explicit active client, locks products, re-reads prices, stock ledger, auto `IN` cashflow, idempotent by key |
 | `void_transaction(id, reason)` | ADMIN | Restore stock, `VOID_RETURN` ledger, auto `OUT` cashflow |
 | `adjust_stock(id, delta, reason, note)` | ADMIN | Manual stock in/out with a signed delta and ledger row |
+| `delete_product_permanently(id)` | ADMIN | Hard delete an archived product that has no transaction history |
 | `current_role()` | internal | Active role for the JWT user, or `NULL` |
 
-Errors use custom SQLSTATEs `FR001`–`FR024`. `FR018` is
+Errors use custom SQLSTATEs `FR001`–`FR027`. `FR018` is
 `VOID_REASON_REQUIRED`, `FR020` is `INVALID_DATE`, `FR021` is
 `INVALID_PAYMENT`, `FR022` is `LAST_ACTIVE_ADMIN`, `FR023` is
-`TRANSACTION_DELETE_FORBIDDEN`, and `FR024` is
-`WALK_IN_CLIENT_PROTECTED`. See the headers of
+`TRANSACTION_DELETE_FORBIDDEN`, `FR024` is `WALK_IN_CLIENT_PROTECTED`
+(retired together with the walk-in client), `FR025` is
+`TOO_MANY_PRODUCT_IMAGES`, `FR026` is `PRODUCT_HAS_HISTORY`, and `FR027` is
+`PRODUCT_NOT_ARCHIVED`. See the headers of
 `20261022120500_functions.sql`, `20261022131000_reconcile_rpc_api.sql`,
 `20261022140000_transaction_functions.sql`,
-`20261022150000_rls_matrix_guards.sql` and
-`20261022160000_protect_walkin_client.sql`.
+`20261022150000_rls_matrix_guards.sql`,
+`20261022160000_protect_walkin_client.sql`,
+`20261022170000_product_images.sql`,
+`20261026120000_permanent_product_delete.sql` and
+`20261026130000_retire_walk_in_client.sql`.
 
 `create_transaction` accepts optional per-line `discount_amount` for API
 compatibility and folds it into `transactions.discount_amount`; the schema
@@ -139,7 +146,11 @@ line values.
   `create_transaction()` and `void_transaction()` are the only supported
   writers; a trigger blocks DELETE entirely (`FR023`).
 - The last active ADMIN cannot be deleted, deactivated or demoted (`FR022`).
-- The seeded walk-in client cannot be edited, deactivated or deleted (`FR024`).
+- The seeded walk-in client was removed; POS requires a client before payment
+  (`FR017` when `create_transaction` receives no client).
+- Products are archived, never hard-deleted through the table. The only purge
+  path is `delete_product_permanently()` (ADMIN, archived rows only, no
+  transaction history — `FR026`/`FR027`).
 - `products.cost_price`, `transaction_items.subtotal_profit`,
   `transactions.total_cost` and `transactions.total_profit` are not granted
   to `authenticated` on the base tables.
@@ -160,9 +171,10 @@ line values.
 
 `supabase/seed.sql` is idempotent and inserts:
 
-- `Pelanggan Umum` walk-in client (null `client_id` falls back to it)
 - singleton store settings
 - 10 hijab products with initial stock movements
+
+No clients are seeded: every sale needs a real customer.
 
 It runs automatically on `db reset`; on a linked project use
 `npx supabase db push --include-seed`.
@@ -178,8 +190,9 @@ It runs automatically on `db reset`; on a linked project use
 | `01_sales_and_cost_leak.sql` | happy path, idempotency, last-unit sale, cash underpayment, discount > subtotal, cashier cost leak |
 | `02_void_and_cashflow.sql` | void, double void, cashier void denial, auto-cashflow immutability, ADMIN manual cashflows, cashier cashflow denial |
 | `03_pricing_and_stock.sql` | stale price, archived product, stock adjustment rules |
-| `04_rls_admin_guards.sql` | cashier cashflow/stock-ledger denial, last-active-admin guard, transaction DELETE guard, walk-in-client protection |
+| `04_rls_admin_guards.sql` | cashier cashflow/stock-ledger denial, last-active-admin guard, transaction DELETE guard |
 | `05_concurrent_last_unit.sql` | true two-session last-unit race via `dblink`; exactly one sale succeeds and the loser gets `FR001 INSUFFICIENT_STOCK` |
+| `06_permanent_product_delete.sql` | ADMIN-only purge, archive-first guard, sales-history guard, cascade cleanup |
 
 ### Run the tests
 
@@ -198,7 +211,7 @@ npx supabase test db supabase/tests/01_sales_and_cost_leak.sql
 npx supabase test db supabase/tests/05_concurrent_last_unit.sql
 ```
 
-Tests `01`–`04` run in a transaction and roll back. Test `05` opens two
+Tests `01`–`04` and `06` run in a transaction and roll back. Test `05` opens two
 `dblink` sessions against the local database, resets its dedicated product to
 stock 1, and intentionally leaves the successful sale's audit rows (transactions
 cannot be deleted). Reset the local database with `npx supabase db reset` for a

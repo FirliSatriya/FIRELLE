@@ -103,7 +103,7 @@ function mapTransaction(row: CashierTransactionRow): Transaction {
     id: row.id ?? "",
     invoice_number: row.invoice_number ?? "",
     client_id: row.client_id,
-    client_name: row.client_name ?? "Pelanggan Umum",
+    client_name: row.client_name ?? "Pelanggan",
     subtotal_amount: toNumber(row.subtotal_amount),
     discount_amount: toNumber(row.discount_amount),
     total_amount: toNumber(row.total_amount),

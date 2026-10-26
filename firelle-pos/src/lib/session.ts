@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentProfile, type AppRole, type CurrentProfile } from "@/lib/supabase/products";
 
+/** Halaman login — satu-satunya tujuan redirect untuk sesi yang tidak valid. */
+export const LOGIN_PATH = "/login";
+
+/** Landing page per role: kasir menjual, admin mengelola (RBAC §2). */
+export function landingFor(role: AppRole | null | undefined): string {
+  return role === "ADMIN" ? "/products" : "/pos";
+}
+
 export interface SessionState {
   loading: boolean;
   userId: string | null;
@@ -40,6 +48,7 @@ export function useSession() {
 
     if (!session) {
       setState({ loading: false, userId: null, profile: null, role: null });
+      router.replace(LOGIN_PATH);
       return null;
     }
 
@@ -48,6 +57,7 @@ export function useSession() {
     if (!profile || !profile.isActive) {
       await supabase.auth.signOut();
       setState({ loading: false, userId: null, profile: null, role: null });
+      router.replace(LOGIN_PATH);
       return null;
     }
 
@@ -58,7 +68,7 @@ export function useSession() {
       role: profile.role,
     });
     return profile;
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     let active = true;
@@ -71,7 +81,7 @@ export function useSession() {
       // the session. TOKEN_REFRESHED / USER_UPDATED must not, or a still-valid
       // cashier session would be mistaken for an expiry.
       if (event === "SIGNED_OUT") {
-        router.replace("/login");
+        router.replace(LOGIN_PATH);
       }
     });
 
@@ -79,7 +89,7 @@ export function useSession() {
       try {
         await reload();
       } catch {
-        if (active) router.replace("/login");
+        if (active) router.replace(LOGIN_PATH);
       }
     })();
 

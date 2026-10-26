@@ -20,15 +20,11 @@ import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthErrorMessage } from "@/lib/errors";
 import { getCurrentProfile } from "@/lib/supabase/products";
+import { landingFor } from "@/lib/session";
 import { authFormSchema, type AuthFormValues, type AuthMode } from "@/lib/validations/auth";
 import { cn } from "@/lib/utils";
 
 type Mode = AuthMode;
-
-/** Landing page per role: cashiers sell, admins manage (RBAC §2). */
-function landingFor(role: string | null | undefined): string {
-  return role === "ADMIN" ? "/products" : "/pos";
-}
 
 export function LoginForm() {
   const router = useRouter();
@@ -63,7 +59,16 @@ export function LoginForm() {
         if (!active || !session) return;
 
         const profile = await getCurrentProfile(session.user.id);
-        if (active) router.replace(landingFor(profile?.role));
+        if (!active) return;
+
+        // Only a valid, active account skips the login form. A dangling session
+        // (e.g. the profile row was removed) stays here so it can be replaced.
+        if (profile?.isActive) {
+          router.replace(landingFor(profile.role));
+          return;
+        }
+
+        await supabase.auth.signOut();
       } catch {
         /* ignore: show the form instead */
       }
@@ -109,10 +114,24 @@ export function LoginForm() {
           return;
         }
 
-        const profile = data.session
-          ? await getCurrentProfile(data.session.user.id)
-          : null;
-        router.replace(landingFor(profile?.role));
+        if (!data.session) {
+          setFormError("Sesi tidak dapat dibuat. Coba masuk kembali.");
+          return;
+        }
+
+        const profile = await getCurrentProfile(data.session.user.id);
+
+        // No profile row / deactivated account: don't carry the session into the
+        // app, and let them know to contact the store admin instead of looping.
+        if (!profile || !profile.isActive) {
+          await supabase.auth.signOut();
+          setFormError(
+            "Akun ini belum aktif atau belum terdaftar sebagai staf toko. Hubungi admin toko."
+          );
+          return;
+        }
+
+        router.replace(landingFor(profile.role));
         router.refresh();
         return;
       }
@@ -132,7 +151,20 @@ export function LoginForm() {
 
       if (data.session) {
         const profile = await getCurrentProfile(data.session.user.id);
-        router.replace(landingFor(profile?.role));
+
+        if (!profile || !profile.isActive) {
+          await supabase.auth.signOut();
+          setNotice(
+            "Akun berhasil dibuat. Tunggu aktivasi dari admin toko sebelum masuk."
+          );
+          applyMode("login");
+          setShowPassword(false);
+          resetField("password", { defaultValue: "" });
+          clearErrors();
+          return;
+        }
+
+        router.replace(landingFor(profile.role));
         router.refresh();
         return;
       }

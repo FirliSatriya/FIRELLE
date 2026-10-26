@@ -81,7 +81,7 @@ export function getTransactionErrorMessage(
     case "FR016":
       return "Nominal tidak valid. Periksa diskon dan pembayaran.";
     case "FR017":
-      return "Pelanggan tidak ditemukan atau tidak aktif.";
+      return "Pelanggan tidak ditemukan, tidak aktif, atau belum dipilih.";
     case "FR018":
       return "Alasan pembatalan wajib diisi.";
     case "FR019":
@@ -91,6 +91,10 @@ export function getTransactionErrorMessage(
       return "Aksi diblokir: sistem harus selalu memiliki minimal satu admin aktif.";
     case "FR024":
       return "Pelanggan Umum (walk-in) tidak dapat diubah atau dihapus.";
+    case "FR026":
+      return "Produk ini punya riwayat transaksi, jadi tidak bisa dihapus permanen. Gunakan arsip untuk menyembunyikannya.";
+    case "FR027":
+      return "Arsipkan produk terlebih dahulu sebelum menghapusnya permanen.";
     default:
       return detail
         ? `Transaksi gagal (${code}).${detail}`

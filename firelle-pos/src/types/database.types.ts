@@ -1159,6 +1159,10 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      delete_product_permanently: {
+        Args: { p_product_id: string }
+        Returns: undefined
+      }
       next_invoice_number: { Args: { p_date?: string }; Returns: string }
       void_transaction: {
         Args: { p_reason?: string; p_transaction_id: string }

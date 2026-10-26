@@ -128,15 +128,10 @@ export function PosTerminal() {
     };
   }, [ready, role, router]);
 
-  const walkInClient = useMemo(
-    () => clients.find((c) => c.is_walk_in) ?? null,
-    [clients]
-  );
-
   const selectedClient = useMemo(() => {
     if (clientId) return clients.find((c) => c.id === clientId) ?? null;
-    return walkInClient;
-  }, [clientId, clients, walkInClient]);
+    return null;
+  }, [clientId, clients]);
 
   /** Typed name that does not match any saved client → will be created. */
   const isNewClientName = useMemo(() => {
@@ -151,10 +146,10 @@ export function PosTerminal() {
 
   /** Name shown on the receipt / payment dialog. */
   const displayClientName =
-    clientName.trim() ||
-    selectedClient?.name ||
-    walkInClient?.name ||
-    "Pelanggan Umum";
+    clientName.trim() || selectedClient?.name || "Pelanggan";
+
+  /** Every sale requires a customer; a typed-but-new name counts too. */
+  const hasClient = clientName.trim().length > 0;
 
   // ─── Categories derived from the catalogue ───
   const categories = useMemo(() => {
@@ -305,10 +300,11 @@ export function PosTerminal() {
   }) => {
     setSubmitting(true);
     setPayError(null);
+    setClientError(null);
 
     try {
       // Resolve the customer: an existing saved client, a freshly typed name
-      // (saved here so it appears in future sales), or the walk-in fallback.
+      // (saved here so it appears in future sales). Every sale needs one.
       let resolvedClientId: string | null = clientId;
 
       if (!resolvedClientId && isNewClientName) {
@@ -325,6 +321,11 @@ export function PosTerminal() {
           );
           throw err;
         }
+      }
+
+      if (!resolvedClientId) {
+        setClientError("Pilih atau ketik nama pelanggan terlebih dahulu.");
+        return;
       }
 
       const transaction = await createTransaction(
@@ -592,9 +593,7 @@ export function PosTerminal() {
             <Input
               type="text"
               aria-label="Nama pelanggan"
-              placeholder={`${
-                walkInClient ? walkInClient.name : "Pelanggan Umum"
-              } — atau ketik nama baru`}
+              placeholder="Pilih atau ketik nama pelanggan..."
               value={clientName}
               list="pos-client-options"
               autoComplete="off"
@@ -607,7 +606,7 @@ export function PosTerminal() {
                 const match = clients.find(
                   (c) => c.name.toLowerCase() === value.trim().toLowerCase()
                 );
-                setClientId(match && !match.is_walk_in ? match.id : null);
+                setClientId(match ? match.id : null);
               }}
               className="h-9 bg-card pr-8 text-xs"
             />
@@ -778,10 +777,18 @@ export function PosTerminal() {
             </span>
           </div>
 
+          {cart.length > 0 && !hasClient && (
+            <p className="text-center text-[11px] text-destructive">
+              Pilih atau ketik nama pelanggan sebelum membayar.
+            </p>
+          )}
+
           <Button
             variant="default"
             className="pos-pay-btn w-full gap-2"
-            disabled={cart.length === 0 || totals.total <= 0 || submitting}
+            disabled={
+              cart.length === 0 || totals.total <= 0 || submitting || !hasClient
+            }
             onClick={() => {
               setPayError(null);
               setPaymentOpen(true);

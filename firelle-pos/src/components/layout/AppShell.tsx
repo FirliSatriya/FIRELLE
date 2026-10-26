@@ -89,7 +89,12 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const pathname = usePathname();
-  const { profile } = useSession();
+  const { profile, ready, userId } = useSession();
+
+  // The shell is the auth gate for every app page: never render the dashboard
+  // chrome (or its data) before the session is resolved. `useSession` already
+  // redirects to /login when there is no valid session.
+  const signedIn = ready && Boolean(userId);
 
   // The sidebar mirrors the RBAC matrix (§2): admin-only modules are hidden
   // from cashiers. RLS still enforces this server-side (AC-4) — hiding is UX.
@@ -191,8 +196,32 @@ export function AppShell({
           </div>
         </div>
 
-        {children}
+        {signedIn ? (
+          children
+        ) : (
+          <SessionGate />
+        )}
       </main>
+    </div>
+  );
+}
+
+/**
+ * Neutral placeholder shown while the session resolves (and while the redirect
+ * to /login is in flight), so no module data is queried for an unknown user.
+ */
+function SessionGate() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-6 text-center"
+    >
+      <span
+        className="size-5 animate-spin rounded-full border-2 border-border border-t-primary"
+        aria-hidden="true"
+      />
+      <p className="text-sm text-muted-foreground">Memeriksa sesi…</p>
     </div>
   );
 }

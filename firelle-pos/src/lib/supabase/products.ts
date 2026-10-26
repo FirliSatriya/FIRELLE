@@ -8,6 +8,7 @@ import type {
   UpdateProductInput,
 } from "@/types/product";
 import { createClient } from "./client";
+import { listGallery } from "./product-images";
 
 export type AppRole = "ADMIN" | "CASHIER";
 
@@ -244,6 +245,34 @@ export async function restoreProduct(productId: string): Promise<void> {
     .eq("id", productId);
 
   if (error) throw error;
+}
+
+/**
+ * Hard delete an archived product. Only allowed when no transaction references
+ * it (enforced by the RPC); the gallery rows cascade, the Storage objects are
+ * removed here after the row is gone.
+ */
+export async function deleteProductPermanently(
+  productId: string
+): Promise<void> {
+  const supabase = createClient();
+
+  // Read the gallery first: the rows cascade with the product, files do not.
+  const images = await listGallery(productId);
+
+  const { error } = await supabase.rpc("delete_product_permanently", {
+    p_product_id: productId,
+  });
+
+  if (error) throw error;
+
+  if (images.length > 0) {
+    // Best-effort cleanup: the product row is already gone, so a failed
+    // Storage call must not make the UI look like the delete failed.
+    await supabase.storage
+      .from(BUCKET)
+      .remove(images.map((image) => image.storage_path));
+  }
 }
 
 export async function listStockMovements(productId: string): Promise<StockMovement[]> {

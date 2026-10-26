@@ -2,22 +2,10 @@
 -- Seed: Firelle defaults + 10 hijab products
 -- Idempotent: fixed UUIDs + ON CONFLICT DO NOTHING / NOT EXISTS guards.
 -- Runs as the migration role, so RLS is bypassed.
+--
+-- No clients are seeded: every sale now requires an explicit customer, and
+-- the walk-in client was retired in 20261026130000_retire_walk_in_client.sql.
 -- ============================================================================
-
--- ----------------------------------------------------------------------------
--- Walk-in client (create_transaction falls back to this row when client_id
--- is null). The row is protected from UPDATE/DELETE by the
--- clients_prevent_walk_in_mutation trigger (FR024).
--- ----------------------------------------------------------------------------
-insert into public.clients (id, name, phone, is_walk_in, is_active)
-values (
-  'c1c1c1c1-0001-4000-8000-000000000001',
-  'Pelanggan Umum',
-  null,
-  true,
-  true
-)
-on conflict do nothing;
 
 -- ----------------------------------------------------------------------------
 -- Default settings (singleton row)

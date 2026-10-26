@@ -1,6 +1,5 @@
 -- ============================================================================
--- 04 / RLS matrix, last-active-admin guard, transaction DELETE guard,
---      walk-in-client protection
+-- 04 / RLS matrix, last-active-admin guard, transaction DELETE guard
 -- ============================================================================
 begin;
 
@@ -135,31 +134,10 @@ select lives_ok(
 );
 
 -- ----------------------------------------------------------------------------
--- Seeded walk-in client is immutable
+-- Financial rows are never hard-deleted
 -- ----------------------------------------------------------------------------
 reset role;
 
-insert into public.clients (id, name, is_walk_in, is_active)
-values ('c1c1c1c1-0001-4000-8000-000000000001', 'Pelanggan Umum', true, true)
-on conflict do nothing;
-
-select throws_ok(
-  $$ update public.clients set name = 'Hacked' where is_walk_in $$,
-  'FR024',
-  'WALK_IN_CLIENT_PROTECTED',
-  'walk-in client cannot be edited or deactivated'
-);
-
-select throws_ok(
-  $$ delete from public.clients where is_walk_in $$,
-  'FR024',
-  'WALK_IN_CLIENT_PROTECTED',
-  'walk-in client cannot be deleted'
-);
-
--- ----------------------------------------------------------------------------
--- Financial rows are never hard-deleted
--- ----------------------------------------------------------------------------
 select throws_ok(
   $$ delete from public.transactions $$,
   'FR023',
