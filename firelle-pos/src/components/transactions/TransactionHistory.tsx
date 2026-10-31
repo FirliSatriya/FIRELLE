@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState } from "react";
 import {
   LuReceipt,
   LuSearch,
@@ -23,13 +23,22 @@ import { formatDateWIB, cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { useDebouncedSearch, usePagination } from "@/lib/hooks";
 import { useSession, useStoreSettings } from "@/lib/session";
+import { useLiveQuery } from "@/lib/use-live-query";
 import {
   listTransactions,
   listTransactionItems,
   voidTransaction,
 } from "@/lib/supabase/transactions";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MoneyText } from "@/components/ui/money-text";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -46,13 +55,25 @@ import { Receipt } from "@/components/pos/PaymentDialog";
 type StatusFilter = "ALL" | "COMPLETED" | "VOID";
 
 export function TransactionHistory() {
-  const { ready, role } = useSession();
+  const { ready, role, userId } = useSession();
   const store = useStoreSettings();
 
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [reloadTick, setReloadTick] = useState(0);
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useLiveQuery<Transaction[]>({
+    queryKey: ["transactions", userId],
+    enabled: ready && Boolean(userId),
+    queryFn: () => listTransactions(200),
+  });
+
+  const transactions = useMemo(() => data ?? [], [data]);
+  const loading = isLoading;
+  const loadError = error ? getErrorMessage(error) : null;
+
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
@@ -68,38 +89,6 @@ export function TransactionHistory() {
   const [voidError, setVoidError] = useState<string | null>(null);
 
   const canVoid = role === "ADMIN";
-
-  // Manual refresh: bump a tick that the load effect depends on. Reloading is
-  // therefore driven by the effect (async) rather than a synchronous setState
-  // in a click handler.
-  const reload = useCallback(() => {
-    setLoadError(null);
-    setLoading(true);
-    setReloadTick((n) => n + 1);
-  }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    let active = true;
-
-    void (async () => {
-      try {
-        const data = await listTransactions(200);
-        if (active) {
-          setTransactions(data);
-          setLoadError(null);
-        }
-      } catch (err) {
-        if (active) setLoadError(getErrorMessage(err));
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [ready, reloadTick]);
 
   const filtered = useMemo(() => {
     let result = transactions;
@@ -164,9 +153,9 @@ export function TransactionHistory() {
     setVoidError(null);
     try {
       const updated = await voidTransaction(voidTarget.id, voidReason);
-      setTransactions((prev) =>
-        prev.map((t) => (t.id === updated.id ? updated : t))
-      );
+      // Refresh immediately so the void shows up without waiting for the next
+      // 3s tick.
+      await refetch();
       setVoidTarget(null);
       setVoidReason("");
       if (detail?.id === updated.id) setDetail(updated);
@@ -202,15 +191,17 @@ export function TransactionHistory() {
           </p>
         </div>
         <div className="header-actions">
-          <Button
-            variant="secondary"
-            onClick={reload}
-            disabled={loading}
-            className="gap-2"
-          >
-            <LuRotateCcw size={16} />
-            <span>Muat Ulang</span>
-          </Button>
+          <ButtonGroup aria-label="Aksi riwayat transaksi">
+            <Button
+              variant="secondary"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              className="gap-2"
+            >
+              <LuRotateCcw size={16} />
+              <span>Muat Ulang</span>
+            </Button>
+          </ButtonGroup>
         </div>
       </div>
 
@@ -240,7 +231,7 @@ export function TransactionHistory() {
 
       {/* Filters */}
       <div className="catalog-toolbar">
-        <div className="relative flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-0 sm:min-w-[240px]">
           <LuSearch
             size={16}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -265,25 +256,22 @@ export function TransactionHistory() {
           )}
         </div>
 
-        <div className="filter-buttons flex gap-1">
-          {(
-            [
-              ["ALL", "Semua"],
-              ["COMPLETED", "Selesai"],
-              ["VOID", "Dibatalkan"],
-            ] as [StatusFilter, string][]
-          ).map(([value, label]) => (
-            <Button
-              key={value}
-              variant={statusFilter === value ? "default" : "secondary"}
-              size="sm"
-              className="h-11 px-3 text-xs"
-              onClick={() => setStatusFilter(value)}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+        >
+          <SelectTrigger
+            className="h-11 w-full min-w-0 sm:w-auto sm:min-w-[9.5rem]"
+            aria-label="Filter status transaksi"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Semua</SelectItem>
+            <SelectItem value="COMPLETED">Selesai</SelectItem>
+            <SelectItem value="VOID">Dibatalkan</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {actionError && (
@@ -343,7 +331,7 @@ export function TransactionHistory() {
                     variant="outline"
                     size="sm"
                     className="mt-3 gap-1.5"
-                    onClick={reload}
+                    onClick={() => void refetch()}
                   >
                     <LuRotateCcw size={14} />
                     <span>Coba lagi</span>

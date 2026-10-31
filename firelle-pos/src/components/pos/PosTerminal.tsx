@@ -11,7 +11,7 @@ import {
   LuTrash2,
   LuPackageSearch,
   LuTriangleAlert,
-  LuBarcode,
+  LuCamera,
   LuCreditCard,
   LuUserRound,
 } from "react-icons/lu";
@@ -46,7 +46,15 @@ import {
 } from "@/lib/supabase/transactions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { StockBadge } from "@/components/products/StockBadge";
+import { BarcodeScannerDialog } from "@/components/pos/BarcodeScannerDialog";
 import {
   PaymentDialog,
   ReceiptDialog,
@@ -93,6 +101,7 @@ export function PosTerminal() {
 
   const { searchTerm, setSearchTerm, debouncedTerm } = useDebouncedSearch(200);
   const [category, setCategory] = useState<string>("Semua");
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   // ─── Load catalogue + clients once the session is ready ───
   // The initial values are already set at mount (loading starts true), so the
@@ -221,6 +230,34 @@ export function PosTerminal() {
       });
     },
     [store?.allow_negative_stock]
+  );
+
+  /**
+   * A decoded barcode/QR from the camera scanner. Matches against barcode then
+   * SKU; on a hit the product goes straight into the cart, otherwise we fall
+   * back to seeding the search box with the raw code.
+   */
+  const handleScan = useCallback(
+    (code: string) => {
+      const needle = code.trim().toLowerCase();
+      if (!needle) return;
+
+      const match = products.find(
+        (p) =>
+          (p.barcode && p.barcode.trim().toLowerCase() === needle) ||
+          (p.sku && p.sku.trim().toLowerCase() === needle)
+      );
+
+      if (match) {
+        addToCart(match);
+        setSearchTerm("");
+        return;
+      }
+
+      setActionError(`Barcode "${code}" tidak cocok dengan produk mana pun.`);
+      setSearchTerm(code);
+    },
+    [products, addToCart, setSearchTerm]
   );
 
   const setQty = useCallback(
@@ -435,29 +472,39 @@ export function PosTerminal() {
                 <LuX size={16} />
               </Button>
             ) : (
-              <LuBarcode
-                size={18}
-                className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60"
-              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Pindai barcode dengan kamera"
+                title="Pindai barcode"
+                onClick={() => setScannerOpen(true)}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-primary hover:text-primary"
+              >
+                <LuCamera size={18} />
+              </Button>
             )}
           </div>
 
-          <div className="pos-category-strip" role="tablist" aria-label="Filter satuan">
-            {categories.map((c) => (
-              <button
-                key={c}
-                type="button"
-                role="tab"
-                aria-selected={category === c}
-                className={cn(
-                  "pos-category-chip",
-                  category === c && "active"
-                )}
-                onClick={() => setCategory(c)}
+          <div className="pos-category-strip">
+            <Select
+              value={category}
+              onValueChange={(value) => setCategory(value ?? "Semua")}
+            >
+              <SelectTrigger
+                className="h-11 w-full min-w-0 sm:w-auto sm:min-w-[9.5rem]"
+                aria-label="Filter satuan"
               >
-                {c === "Semua" ? "Semua Satuan" : c}
-              </button>
-            ))}
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c === "Semua" ? "Semua Satuan" : c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {actionError && (
@@ -824,6 +871,12 @@ export function PosTerminal() {
           onNewTransaction={handleNewTransaction}
         />
       )}
+
+      <BarcodeScannerDialog
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onDetected={handleScan}
+      />
     </div>
   );
 }

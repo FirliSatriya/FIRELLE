@@ -3,14 +3,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   LuLayoutDashboard,
+  LuMenu,
   LuPackage,
   LuShoppingCart,
   LuReceipt,
   LuUsers,
   LuWallet,
   LuSettings,
+  LuX,
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/session";
@@ -90,6 +93,27 @@ export function AppShell({
 }: AppShellProps) {
   const pathname = usePathname();
   const { profile, ready, userId } = useSession();
+  const [navOpen, setNavOpen] = useState(false);
+
+  // Lock body scroll while the mobile drawer is open.
+  useEffect(() => {
+    if (!navOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [navOpen]);
+
+  // Allow closing the drawer with Escape.
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
 
   // The shell is the auth gate for every app page: never render the dashboard
   // chrome (or its data) before the session is resolved. `useSession` already
@@ -104,7 +128,14 @@ export function AppShell({
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      {/* Mobile drawer scrim */}
+      <div
+        className={cn("sidebar-overlay", navOpen && "is-open")}
+        onClick={() => setNavOpen(false)}
+        aria-hidden="true"
+      />
+
+      <aside className={cn("sidebar", navOpen && "is-open")} id="app-sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-logo">
             <Image
@@ -117,7 +148,14 @@ export function AppShell({
             />
             <span>FIRÉLLE</span>
           </div>
-          <div className="sidebar-subtitle"></div>
+          <button
+            type="button"
+            className="sidebar-close"
+            onClick={() => setNavOpen(false)}
+            aria-label="Tutup menu"
+          >
+            <LuX size={18} />
+          </button>
         </div>
 
         <nav className="sidebar-nav">
@@ -152,6 +190,7 @@ export function AppShell({
                 href={item.href}
                 className={cn("nav-item", active && "active")}
                 aria-current={active ? "page" : undefined}
+                onClick={() => setNavOpen(false)}
               >
                 <span className="nav-icon">{item.icon}</span>
                 <span>{item.label}</span>
@@ -163,6 +202,17 @@ export function AppShell({
 
       <main className="main-content">
         <div className="topbar">
+          <button
+            type="button"
+            className="nav-toggle"
+            onClick={() => setNavOpen(true)}
+            aria-label="Buka menu"
+            aria-controls="app-sidebar"
+            aria-expanded={navOpen}
+          >
+            <LuMenu size={20} />
+          </button>
+
           <nav aria-label="Breadcrumb" className="breadcrumb">
             {breadcrumb.map((crumb, index) => {
               const isLast = index === breadcrumb.length - 1;

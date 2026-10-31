@@ -1727,6 +1727,51 @@ body {
 }
 
 /* ─── Responsive ───────────────────────────────── */
+/* Hamburger + drawer scrim are mobile-only chrome. */
+.nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.nav-toggle:hover {
+  background: hsl(var(--secondary));
+}
+
+.sidebar-close {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid hsl(var(--border));
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+}
+
+.sidebar-close:hover {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+/* Tablet / small desktop: collapse the sidebar to an icon rail. */
 @media (max-width: 1024px) {
   .sidebar {
     width: 60px;
@@ -1757,9 +1802,88 @@ body {
   }
 }
 
+/* Phones: replace the cramped icon rail with a slide-in drawer. */
 @media (max-width: 768px) {
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 60;
+    width: min(280px, 82vw);
+    padding: 1.25rem 0;
+    transform: translateX(-100%);
+    transition: transform var(--transition-base);
+    box-shadow: var(--shadow-warm-lg);
+    overflow-y: auto;
+  }
+
+  .sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    padding: 0 1.25rem;
+    text-align: left;
+  }
+
+  .sidebar-logo {
+    font-size: 1.5rem;
+  }
+
+  .sidebar-close {
+    display: inline-flex;
+  }
+
+  /* Restore labels inside the drawer. */
+  .sidebar-subtitle,
+  .nav-item span:not(.nav-icon) {
+    display: block;
+  }
+
+  .nav-item {
+    justify-content: flex-start;
+    padding: 0.75rem 0.875rem;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: hsl(var(--background) / 0.6);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-base);
+  }
+
+  .sidebar-overlay.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .topbar {
+    gap: 0.75rem;
     padding: 0.75rem 1rem;
+  }
+
+  .breadcrumb {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .breadcrumb-item {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .user-name,
@@ -1767,7 +1891,9 @@ body {
     display: none;
   }
 
-  .product-catalog {
+  .product-catalog,
+  .tx-page,
+  .client-directory {
     padding: 1rem;
   }
 
@@ -1791,8 +1917,9 @@ body {
     align-items: stretch;
   }
 
-  .search-box {
-    min-width: auto;
+  .search-box,
+  .catalog-toolbar .min-w-\[240px\] {
+    min-width: 0;
   }
 
   .filter-group {
@@ -1818,6 +1945,43 @@ body {
 
   .detail-grid,
   .price-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pagination {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .page-controls {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+
+/* Very small phones: tighten spacing and fluid tables. */
+@media (max-width: 480px) {
+  .topbar {
+    padding: 0.625rem 0.75rem;
+  }
+
+  .breadcrumb-item[aria-current="page"] {
+    font-size: 1rem;
+  }
+
+  .product-catalog,
+  .tx-page,
+  .client-directory,
+  .pos-page {
+    padding: 0.75rem;
+  }
+
+  .pos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .tx-stat-grid {
     grid-template-columns: 1fr;
   }
 }

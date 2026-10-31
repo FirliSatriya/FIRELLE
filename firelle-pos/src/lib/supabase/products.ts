@@ -182,7 +182,9 @@ export async function createProduct(
       stock: input.stock,
       min_stock: input.min_stock,
     })
-    .select("*")
+    .select(
+      "id, sku, barcode, name, unit, selling_price, stock, min_stock, is_deleted, deleted_at, created_at, updated_at"
+    )
     .single();
 
   if (error) throw error;
@@ -193,7 +195,7 @@ export async function createProduct(
     barcode: data.barcode,
     name: data.name,
     unit: data.unit,
-    cost_price: toNumber(data.cost_price),
+    cost_price: input.cost_price,
     selling_price: toNumber(data.selling_price),
     stock: toNumber(data.stock),
     min_stock: toNumber(data.min_stock),

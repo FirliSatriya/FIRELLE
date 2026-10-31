@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import Link from "next/link";
 import {
   LuLayoutDashboard,
@@ -30,6 +30,7 @@ import {
 import { formatDateWIB, cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { useSession } from "@/lib/session";
+import { useLiveQuery } from "@/lib/use-live-query";
 import { listProducts } from "@/lib/supabase/products";
 import { listTransactions } from "@/lib/supabase/transactions";
 import {
@@ -44,61 +45,52 @@ import { Badge } from "@/components/ui/badge";
 import { StockBadge } from "@/components/products/StockBadge";
 
 export function DashboardOverview() {
-  const { ready, role, profile } = useSession();
+  const { ready, role, profile, userId } = useSession();
   const isAdmin = role === "ADMIN";
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [summary, setSummary] = useState<CashflowSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [reloadTick, setReloadTick] = useState(0);
-  // Resolved after mount so prerendering never reads the wall clock.
-  const [todayKey, setTodayKey] = useState("");
+  // The whole dashboard refreshes as one query keyed by the signed-in user, so
+  // a role switch (or logout) cannot serve another account's cached numbers.
+  const { data, isLoading, isFetching, error, refetch } = useLiveQuery<{
+    products: Product[];
+    transactions: Transaction[];
+    summary: CashflowSummary | null;
+  }>({
+    queryKey: ["dashboard", userId, role],
+    enabled: ready && Boolean(role),
+    queryFn: async () => {
+      const [productList, txnList, cashflow] = await Promise.all([
+        listProducts(role!),
+        listTransactions(200),
+        isAdmin
+          ? getCashflowSummary(resolveDateRange("THIS_MONTH", undefined, new Date()))
+          : Promise.resolve(null),
+      ]);
+      return {
+        products: productList.filter((p) => !p.is_deleted),
+        transactions: txnList,
+        summary: cashflow,
+      };
+    },
+  });
 
-  useEffect(() => {
-    setTodayKey(
-      new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(
-        new Date()
-      )
-    );
-  }, [reloadTick]);
+  const products = useMemo(() => data?.products ?? [], [data]);
+  const transactions = useMemo(() => data?.transactions ?? [], [data]);
+  const summary = data?.summary ?? null;
+  const loading = isLoading;
+  const loadError = error ? getErrorMessage(error) : null;
 
-  const reload = useCallback(() => {
-    setLoadError(null);
-    setLoading(true);
-    setReloadTick((n) => n + 1);
-  }, []);
-
-  useEffect(() => {
-    if (!ready || !role) return;
-    let active = true;
-
-    void (async () => {
-      try {
-        const [productList, txnList, cashflow] = await Promise.all([
-          listProducts(role),
-          listTransactions(200),
-          isAdmin
-            ? getCashflowSummary(resolveDateRange("THIS_MONTH", undefined, new Date()))
-            : Promise.resolve(null),
-        ]);
-        if (!active) return;
-        setProducts(productList.filter((p) => !p.is_deleted));
-        setTransactions(txnList);
-        setSummary(cashflow);
-        setLoadError(null);
-      } catch (err) {
-        if (active) setLoadError(getErrorMessage(err));
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [ready, role, isAdmin, reloadTick]);
+  // The WIB calendar day, resolved at fetch time so prerendering never reads
+  // the wall clock (Cache Components rejects that). A poll that crosses
+  // midnight therefore moves "hari ini" along with it.
+  const todayKey = useMemo(
+    () =>
+      data
+        ? new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Jakarta",
+          }).format(new Date())
+        : "",
+    [data]
+  );
 
   // ─── Today's sales, derived from the WIB calendar day ───
   const todayStats = useMemo(() => {
@@ -165,8 +157,8 @@ export function DashboardOverview() {
         <div className="header-actions">
           <Button
             variant="secondary"
-            onClick={reload}
-            disabled={loading}
+            onClick={() => void refetch()}
+            disabled={isFetching}
             className="gap-2"
           >
             <LuRotateCcw size={16} />

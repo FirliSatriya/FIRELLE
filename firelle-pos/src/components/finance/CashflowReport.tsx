@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   LuWallet,
@@ -36,6 +36,7 @@ import { formatDateWIB, cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { useDebouncedSearch, usePagination } from "@/lib/hooks";
 import { useSession, useStoreSettings } from "@/lib/session";
+import { useLiveQuery } from "@/lib/use-live-query";
 import {
   createCashflow,
   deleteCashflow,
@@ -45,6 +46,15 @@ import {
   type CashflowSummary,
 } from "@/lib/supabase/finance";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { MoneyText } from "@/components/ui/money-text";
@@ -78,15 +88,10 @@ interface ExpenseSlice {
 
 export function CashflowReport() {
   const router = useRouter();
-  const { ready, role } = useSession();
+  const { ready, role, userId } = useSession();
   const store = useStoreSettings();
 
-  const [rows, setRows] = useState<Cashflow[]>([]);
-  const [summary, setSummary] = useState<CashflowSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [reloadTick, setReloadTick] = useState(0);
 
   const [preset, setPreset] = useState<DateRangePreset>("THIS_MONTH");
   const [customStart, setCustomStart] = useState("");
@@ -117,46 +122,35 @@ export function CashflowReport() {
     }
   }, [ready, role, router]);
 
-  const reload = useCallback(() => {
-    setLoadError(null);
-    setLoading(true);
-    setReloadTick((n) => n + 1);
-  }, []);
-
   // ─── Load cashflows + summary for the selected range ───
-  // The range is resolved inside the effect (never during render) so the
-  // prerender never reads the wall clock — Cache Components rejects that.
-  useEffect(() => {
-    if (!ready || !isAdmin) return;
-    let active = true;
+  // The range is resolved inside the queryFn (never during render) so the
+  // prerender never reads the wall clock — Cache Components rejects that. The
+  // resolved bounds are part of the key so a preset change refetches at once.
+  const rangeKey = `${preset}:${customStart}:${customEnd}`;
+  const { data, isLoading, isFetching, error, refetch } = useLiveQuery<{
+    rows: Cashflow[];
+    summary: CashflowSummary;
+  }>({
+    queryKey: ["cashflows", userId, rangeKey],
+    enabled: ready && isAdmin,
+    queryFn: async () => {
+      const range = resolveDateRange(
+        preset,
+        { start: customStart, end: customEnd },
+        new Date()
+      );
+      const [cashflows, sums] = await Promise.all([
+        listCashflows(range),
+        getCashflowSummary(range),
+      ]);
+      return { rows: cashflows, summary: sums };
+    },
+  });
 
-    const range = resolveDateRange(
-      preset,
-      { start: customStart, end: customEnd },
-      new Date()
-    );
-
-    void (async () => {
-      try {
-        const [cashflows, sums] = await Promise.all([
-          listCashflows(range),
-          getCashflowSummary(range),
-        ]);
-        if (!active) return;
-        setRows(cashflows);
-        setSummary(sums);
-        setLoadError(null);
-      } catch (err) {
-        if (active) setLoadError(getErrorMessage(err));
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [ready, isAdmin, preset, customStart, customEnd, reloadTick]);
+  const rows = useMemo(() => data?.rows ?? [], [data]);
+  const summary = data?.summary ?? null;
+  const loading = isLoading;
+  const loadError = error ? getErrorMessage(error) : null;
 
   // ─── Categories present in the current rows (for the filter dropdown) ───
   const categories = useMemo(() => {
@@ -230,20 +224,22 @@ export function CashflowReport() {
   }, [rows]);
 
   // ─── Manual CRUD handlers ───
+  // Each mutation refetches straight away so the table never waits for the
+  // next 3s tick after the user's own edit.
   const handleCreate = async (input: CashflowInput) => {
     await createCashflow(input);
-    reload();
+    await refetch();
   };
 
   const handleUpdate = async (input: CashflowInput) => {
     if (!editEntry) return;
     await updateCashflow(editEntry.id, input);
-    reload();
+    await refetch();
   };
 
   const handleDelete = async (id: string) => {
     await deleteCashflow(id);
-    reload();
+    await refetch();
   };
 
   // ─── CSV export of the filtered rows (Module 6.1) ───
@@ -304,8 +300,8 @@ export function CashflowReport() {
         <div className="header-actions flex flex-wrap items-center gap-2">
           <Button
             variant="secondary"
-            onClick={reload}
-            disabled={loading}
+            onClick={() => void refetch()}
+            disabled={isFetching}
             className="gap-2"
           >
             <LuRotateCcw size={16} />
@@ -366,43 +362,43 @@ export function CashflowReport() {
 
       {/* Filters */}
       <div className="catalog-toolbar flex-wrap">
-        <div className="filter-buttons flex flex-wrap gap-1">
+        <ButtonGroup aria-label="Rentang tanggal" className="flex-wrap">
           {DATE_PRESETS.map((p) => (
             <Button
               key={p}
-              variant={preset === p ? "default" : "secondary"}
+              variant="outline"
               size="sm"
               className="h-11 px-3 text-xs"
+              aria-pressed={preset === p}
               onClick={() => setPreset(p)}
+              data-active={preset === p}
             >
               {DATE_RANGE_LABELS[p]}
             </Button>
           ))}
-        </div>
+        </ButtonGroup>
 
         {preset === "CUSTOM" && (
           <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="date"
+            <DatePicker
               value={customStart}
+              onChange={setCustomStart}
+              placeholder="Tanggal mulai"
+              triggerClassName="w-auto"
               max={customEnd || undefined}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="h-11 w-auto bg-card"
-              aria-label="Tanggal mulai"
             />
             <span className="text-xs text-muted-foreground">s/d</span>
-            <Input
-              type="date"
+            <DatePicker
               value={customEnd}
+              onChange={setCustomEnd}
+              placeholder="Tanggal akhir"
+              triggerClassName="w-auto"
               min={customStart || undefined}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="h-11 w-auto bg-card"
-              aria-label="Tanggal akhir"
             />
           </div>
         )}
 
-        <div className="relative min-w-[240px] flex-1">
+        <div className="relative min-w-0 flex-1 sm:min-w-[240px]">
           <LuSearch
             size={16}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -427,41 +423,53 @@ export function CashflowReport() {
           )}
         </div>
 
-        <select
-          className="h-11 rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+        <Select
           value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
-          aria-label="Filter jenis"
+          onValueChange={(value) => setTypeFilter(value as TypeFilter)}
         >
-          <option value="ALL">Semua Jenis</option>
-          <option value="IN">Kas Masuk</option>
-          <option value="OUT">Kas Keluar</option>
-        </select>
+          <SelectTrigger className="h-11 w-full min-w-0 sm:w-auto sm:min-w-[9.5rem]" aria-label="Filter jenis">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Semua Jenis</SelectItem>
+            <SelectItem value="IN">Kas Masuk</SelectItem>
+            <SelectItem value="OUT">Kas Keluar</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <select
-          className="h-11 rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+        <Select
           value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
-          aria-label="Filter sumber"
+          onValueChange={(value) => setSourceFilter(value as SourceFilter)}
         >
-          <option value="ALL">Semua Sumber</option>
-          <option value="MANUAL">Manual</option>
-          <option value="AUTO">Otomatis</option>
-        </select>
+          <SelectTrigger className="h-11 w-full min-w-0 sm:w-auto sm:min-w-[9.5rem]" aria-label="Filter sumber">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Semua Sumber</SelectItem>
+            <SelectItem value="MANUAL">Manual</SelectItem>
+            <SelectItem value="AUTO">Otomatis</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <select
-          className="h-11 max-w-[200px] rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+        <Select
           value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          aria-label="Filter kategori"
+          onValueChange={(value) => setCategoryFilter(value ?? "ALL")}
         >
-          <option value="ALL">Semua Kategori</option>
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {cashflowCategoryLabel(c)}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger
+            className="h-11 max-w-[200px]"
+            aria-label="Filter kategori"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Semua Kategori</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c} value={c}>
+                {cashflowCategoryLabel(c)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <Button
           variant="secondary"
@@ -530,7 +538,7 @@ export function CashflowReport() {
                     variant="outline"
                     size="sm"
                     className="mt-3 gap-1.5"
-                    onClick={reload}
+                    onClick={() => void refetch()}
                   >
                     <LuRotateCcw size={14} />
                     <span>Coba lagi</span>

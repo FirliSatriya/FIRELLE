@@ -25,6 +25,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ProductImageManager } from "./ProductImageManager";
 
@@ -179,15 +186,21 @@ export function CreateProductDialog({ onClose, onCreate }: CreateProductDialogPr
             </label>
             <div className="flex gap-2">
               {!useCustomUnit ? (
-                <select
-                  className="h-11 flex-1 rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
-                  value={form.unit}
-                  onChange={(e) => updateField("unit", e.target.value)}
-                >
+              <Select
+                value={form.unit}
+                onValueChange={(value) => updateField("unit", value ?? "Pcs")}
+              >
+                <SelectTrigger className="h-11 flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
                   {ALL_UNITS.map((u) => (
-                    <option key={u} value={u}>{u}</option>
+                    <SelectItem key={u} value={u}>
+                      {u}
+                    </SelectItem>
                   ))}
-                </select>
+                </SelectContent>
+              </Select>
               ) : (
                 <Input
                   type="text"

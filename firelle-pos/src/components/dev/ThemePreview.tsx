@@ -3,7 +3,6 @@
 import * as React from "react";
 import {
   LuCheck,
-  LuChevronDown,
   LuMoon,
   LuSun,
   LuPlus,
@@ -14,6 +13,13 @@ import {
 } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StockBadge } from "@/components/products/StockBadge";
@@ -218,13 +224,15 @@ export function ThemePreview() {
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium">Satuan</label>
-              <div className="relative">
-                <select className="h-11 w-full appearance-none rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40">
-                  <option>Pcs</option>
-                  <option>Meter</option>
-                </select>
-                <LuChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              </div>
+              <Select defaultValue="Pcs">
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Pcs">Pcs</SelectItem>
+                  <SelectItem value="Meter">Meter</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium">Harga jual</label>

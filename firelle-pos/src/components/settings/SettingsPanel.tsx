@@ -22,6 +22,13 @@ import {
   type StoreSettingsRow,
 } from "@/lib/supabase/settings";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -169,7 +176,7 @@ export function SettingsPanel() {
 
   return (
     <div className="tx-page">
-      <div className="catalog-header">
+      <div className="catalog-header mx-auto max-w-3xl">
         <div className="header-left">
           <h1 className="header-title">
             <span className="header-title-icon" aria-hidden="true">
@@ -186,7 +193,7 @@ export function SettingsPanel() {
       {loadError ? (
         <div
           role="alert"
-          className="max-w-3xl rounded-xl border border-destructive/25 bg-card p-6 shadow-warm"
+          className="mx-auto max-w-3xl rounded-xl border border-destructive/25 bg-card p-6 shadow-warm"
         >
           <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
             <LuTriangleAlert size={18} />
@@ -206,7 +213,7 @@ export function SettingsPanel() {
       ) : loading || !form || !savedForm ? (
         <SettingsSkeleton />
       ) : (
-        <form onSubmit={handleSubmit} className="max-w-3xl space-y-5">
+        <form onSubmit={handleSubmit} className="mx-auto max-w-3xl space-y-5">
           <Section
             icon={<LuStore size={18} />}
             title="Identitas Toko"
@@ -265,20 +272,23 @@ export function SettingsPanel() {
                 htmlFor="receipt-paper"
                 className="sm:col-span-2"
               >
-                <select
-                  id="receipt-paper"
+                <Select
                   value={form.receiptPaper}
-                  onChange={(e) =>
-                    update("receiptPaper", e.target.value as ReceiptPaper)
+                  onValueChange={(value) =>
+                    update("receiptPaper", value as ReceiptPaper)
                   }
-                  className="h-11 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground outline-none transition-all focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
-                  {RECEIPT_PAPER_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="receipt-paper" className="h-11 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RECEIPT_PAPER_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
 
               <Field
@@ -474,7 +484,7 @@ function Field({
 
 function SettingsSkeleton() {
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="mx-auto max-w-3xl space-y-5">
       {[0, 1, 2].map((i) => (
         <div
           key={i}

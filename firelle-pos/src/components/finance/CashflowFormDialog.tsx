@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { LuTriangleAlert } from "react-icons/lu";
 import {
   CASHFLOW_TYPE_LABELS,
@@ -23,6 +23,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
 interface CashflowFormDialogProps {
@@ -59,17 +67,24 @@ export function CashflowFormDialog({
   // Resolved once, when the dialog mounts: the dialog only ever renders on the
   // client (after a user action), so this must not read the clock during the
   // page prerender.
-  const [todayInput] = useState(() => toWIBDateInput(new Date()));
-  const [dateInput, setDateInput] = useState(
-    entry ? toWIBDateInput(new Date(entry.occurred_at)) : todayInput
+  const [dateInput, setDateInput] = useState(() =>
+    entry
+      ? toWIBDateInput(new Date(entry.occurred_at))
+      : toWIBDateInput(new Date())
   );
   const [description, setDescription] = useState(entry?.description ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  // Clear a stale error as soon as the user edits anything that feeds
+  // validation. Tracked with a render-time fingerprint instead of an effect so
+  // the reset does not trigger a second render pass (react-hooks/set-state-in-effect).
+  const inputFingerprint = [type, category, customCategory, amountText, dateInput, useCustom].join("\u0000");
+  const [lastFingerprint, setLastFingerprint] = useState(inputFingerprint);
+  if (lastFingerprint !== inputFingerprint) {
+    setLastFingerprint(inputFingerprint);
     setError("");
-  }, [type, category, customCategory, amountText, dateInput, useCustom]);
+  }
 
   const amount = Number(amountText);
   const resolvedCategory = useCustom ? customCategory.trim() : category;
@@ -201,17 +216,21 @@ export function CashflowFormDialog({
                 autoFocus
               />
             ) : (
-              <select
-                className="h-11 w-full rounded-lg border border-input bg-secondary px-3 py-2 text-sm text-foreground transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+              <Select
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onValueChange={(value) => setCategory(value ?? "")}
               >
-                {MANUAL_CATEGORY_PRESETS.map((c) => (
-                  <option key={c} value={c}>
-                    {cashflowCategoryLabel(c)}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-11 w-full bg-secondary">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MANUAL_CATEGORY_PRESETS.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {cashflowCategoryLabel(c)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </div>
 
@@ -239,11 +258,11 @@ export function CashflowFormDialog({
               <label className="text-xs font-medium text-secondary-foreground">
                 Tanggal (WIB) <span className="text-destructive">*</span>
               </label>
-              <Input
-                type="date"
+              <DatePicker
                 value={dateInput}
-                max={todayInput}
-                onChange={(e) => setDateInput(e.target.value)}
+                onChange={setDateInput}
+                placeholder="Pilih tanggal"
+                max={toWIBDateInput(new Date())}
               />
             </div>
           </div>

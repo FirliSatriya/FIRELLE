@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 
 const cormorantGaramond = Cormorant_Garamond({
   subsets: ["latin"],
@@ -44,7 +45,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        {children}
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );

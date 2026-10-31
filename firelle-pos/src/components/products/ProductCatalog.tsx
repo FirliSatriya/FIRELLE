@@ -62,6 +62,13 @@ import { DeleteProductDialog } from "./DeleteProductDialog";
 import { PermanentDeleteProductDialog } from "./PermanentDeleteProductDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 function SortIcon({
   field,
@@ -356,7 +363,11 @@ export function ProductCatalog() {
         </div>
         <div className="header-actions flex items-center gap-2">
           {canManage ? (
-            <>
+            <div
+              role="group"
+              aria-label="Aksi katalog produk"
+              className="flex flex-wrap items-center justify-end gap-2"
+            >
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -385,14 +396,14 @@ export function ProductCatalog() {
                 <LuPlus size={16} />
                 <span>Tambah Produk</span>
               </Button>
-            </>
+            </div>
           ) : null}
         </div>
       </div>
 
       {/* ── Toolbar ── */}
       <div className="catalog-toolbar">
-        <div className="relative flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-0 sm:min-w-[240px]">
           <LuSearch
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
@@ -419,22 +430,22 @@ export function ProductCatalog() {
 
         <div className="filter-group">
           <label className="filter-label text-xs font-medium text-muted-foreground">Stok:</label>
-          <div className="filter-buttons flex gap-1">
-            {(["ALL", "LOW", "OUT"] as StockFilter[]).map((f) => (
-              <Button
-                key={f}
-                variant={stockFilter === f ? "default" : "secondary"}
-                size="sm"
-                className={cn(
-                  "h-11 px-3 text-xs",
-                  stockFilter !== f && "bg-secondary text-secondary-foreground hover:bg-accent border-border/60"
-                )}
-                onClick={() => setStockFilter(f)}
-              >
-                {f === "ALL" ? "Semua" : f === "LOW" ? "Rendah" : "Habis"}
-              </Button>
-            ))}
-          </div>
+          <Select
+            value={stockFilter}
+            onValueChange={(value) => setStockFilter(value as StockFilter)}
+          >
+            <SelectTrigger
+              className="h-11 w-full min-w-0 sm:w-auto sm:min-w-[9.5rem]"
+              aria-label="Filter stok produk"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Semua</SelectItem>
+              <SelectItem value="LOW">Rendah</SelectItem>
+              <SelectItem value="OUT">Habis</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <label className="toggle-archived flex items-center gap-2 cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground transition-colors">

@@ -29,6 +29,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MoneyText } from "@/components/ui/money-text";
 import { StatusBadge } from "@/components/ui/status-badge";
 
@@ -143,39 +150,32 @@ export function PaymentDialog({
             <label className="text-xs font-medium text-secondary-foreground">
               Metode Pembayaran
             </label>
-            <div className="pos-pay-methods">
-              {METHODS.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => {
-                    setMethod(m.value);
-                    setPaidInput("");
-                    setLocalError(null);
-                  }}
-                  className={cn(
-                    "flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-xs font-medium transition-all",
-                    method === m.value
-                      ? "border-primary bg-primary text-primary-foreground shadow-warm"
-                      : "border-border bg-card text-foreground hover:bg-secondary"
-                  )}
-                >
-                  {m.icon}
-                  <span>{m.label}</span>
-                  <span
-                    className={cn(
-                      "text-[10px] font-normal",
-                      method === m.value
-                        ? "text-primary-foreground/80"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    {m.hint}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <Select
+              value={method}
+              onValueChange={(value) => {
+                setMethod(value as PaymentMethod);
+                setPaidInput("");
+                setLocalError(null);
+              }}
+              disabled={submitting}
+            >
+              <SelectTrigger className="h-11 w-full" aria-label="Metode Pembayaran">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {METHODS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    <span className="flex items-center gap-2">
+                      {m.icon}
+                      <span>{m.label}</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">
+                        {m.hint}
+                      </span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Cash input + quick amounts */}

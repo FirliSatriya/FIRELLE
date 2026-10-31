@@ -26,6 +26,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
 interface StockAdjustmentDialogProps {
@@ -184,22 +191,26 @@ export function StockAdjustmentDialog({
             <label className="text-xs font-medium text-secondary-foreground">
               Alasan <span className="text-destructive">*</span>
             </label>
-            <select
-              className="h-11 w-full rounded-lg border border-input bg-secondary px-3 py-2 text-sm text-foreground transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+            <Select
               value={form.reason}
-              onChange={(e) =>
+              onValueChange={(value) =>
                 setForm((p) => ({
                   ...p,
-                  reason: e.target.value as StockAdjustmentReason,
+                  reason: value as StockAdjustmentReason,
                 }))
               }
             >
-              {REASONS.map((r) => (
-                <option key={r} value={r}>
-                  {REASON_LABELS[r]}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-11 w-full bg-secondary">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {REASONS.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {REASON_LABELS[r]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Note */}

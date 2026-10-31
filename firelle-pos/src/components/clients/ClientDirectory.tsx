@@ -42,6 +42,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ClientFormDialog } from "./ClientFormDialog";
 import { ArchiveClientDialog } from "./ArchiveClientDialog";
 import { ClientDetailDrawer } from "./ClientDetailDrawer";
@@ -251,15 +258,6 @@ export function ClientDirectory() {
           </p>
         </div>
         <div className="header-actions flex items-center gap-2">
-          <Button
-            variant="secondary"
-            onClick={reload}
-            disabled={loading}
-            className="gap-2"
-          >
-            <LuRotateCcw size={16} />
-            <span>Muat Ulang</span>
-          </Button>
           {canManage && (
             <Button
               variant="default"
@@ -275,7 +273,7 @@ export function ClientDirectory() {
 
       {/* ── Toolbar ── */}
       <div className="catalog-toolbar">
-        <div className="relative flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-0 sm:min-w-[240px]">
           <LuSearch
             size={16}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -300,25 +298,24 @@ export function ClientDirectory() {
           )}
         </div>
 
-        <div className="filter-buttons flex gap-1">
-          {(
-            [
-              ["ALL", "Semua"],
-              ["ACTIVE", "Aktif"],
-              ["ARCHIVED", "Arsip"],
-            ] as [ClientStatusFilter, string][]
-          ).map(([value, label]) => (
-            <Button
-              key={value}
-              variant={statusFilter === value ? "default" : "secondary"}
-              size="sm"
-              className="h-11 px-3 text-xs"
-              onClick={() => setStatusFilter(value)}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
+        <Select
+          value={statusFilter}
+          onValueChange={(value) =>
+            setStatusFilter(value as ClientStatusFilter)
+          }
+        >
+          <SelectTrigger
+            className="h-11 w-full min-w-0 sm:w-auto sm:min-w-[9.5rem]"
+            aria-label="Filter status pelanggan"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Semua</SelectItem>
+            <SelectItem value="ACTIVE">Aktif</SelectItem>
+            <SelectItem value="ARCHIVED">Arsip</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {actionError && (
@@ -438,7 +435,7 @@ export function ClientDirectory() {
                   </td>
                   <td className="text-xs">
                     {client.address ? (
-                      <span className="line-clamp-1 max-w-[280px]">
+                      <span className="line-clamp-1 max-w-[160px] sm:max-w-[280px]">
                         {client.address}
                       </span>
                     ) : (
