@@ -10,6 +10,7 @@ import {
   LuCircleCheck,
   LuEye,
   LuEyeOff,
+  LuFlaskConical,
   LuLoaderCircle,
   LuLock,
   LuMail,
@@ -26,12 +27,27 @@ import { cn } from "@/lib/utils";
 
 type Mode = AuthMode;
 
-export function LoginForm() {
+interface DemoAccount {
+  email: string;
+  password: string;
+}
+
+interface LoginFormProps {
+  /**
+   * Kredensial demo dari `.env.local` (hanya diisi saat `APP_MODE=demo`).
+   * Null/undefined menyembunyikan tombol masuk cepat, jadi production tidak
+   * pernah menampilkan jalan pintas ini.
+   */
+  demoAccount?: DemoAccount | null;
+}
+
+export function LoginForm({ demoAccount = null }: LoginFormProps) {
   const router = useRouter();
   const [mode, setMode] = React.useState<Mode>("login");
   const [showPassword, setShowPassword] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
+  const [demoBusy, setDemoBusy] = React.useState(false);
 
   const {
     register,
@@ -94,6 +110,66 @@ export function LoginForm() {
     clearErrors();
   };
 
+  /**
+   * Satu-satunya jalur masuk. Dipakai form dan tombol demo supaya aturan
+   * aktivasi akun tetap sama di kedua pintu.
+   */
+  const signIn = async (email: string, password: string) => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setFormError(getAuthErrorMessage(error.message));
+        return;
+      }
+
+      if (!data.session) {
+        setFormError("Sesi tidak dapat dibuat. Coba masuk kembali.");
+        return;
+      }
+
+      const profile = await getCurrentProfile(data.session.user.id);
+
+      // No profile row / deactivated account: don't carry the session into the
+      // app, and let them know to contact the store admin instead of looping.
+      if (!profile || !profile.isActive) {
+        await supabase.auth.signOut();
+        setFormError(
+          "Akun ini belum aktif atau belum terdaftar sebagai staf toko. Hubungi admin toko."
+        );
+        return;
+      }
+
+      router.replace(landingFor(profile.role));
+      router.refresh();
+    } catch (err) {
+      setFormError(
+        getAuthErrorMessage(err instanceof Error ? err.message : String(err))
+      );
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    if (!demoAccount || demoBusy || isSubmitting) return;
+
+    setFormError(null);
+    setNotice(null);
+    setDemoBusy(true);
+
+    // Tampilkan kredensial di form agar jelas akun mana yang dipakai.
+    applyMode("login");
+    setValue("email", demoAccount.email);
+    setValue("password", demoAccount.password);
+    clearErrors();
+
+    await signIn(demoAccount.email, demoAccount.password);
+    setDemoBusy(false);
+  };
+
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     setNotice(null);
@@ -104,35 +180,7 @@ export function LoginForm() {
       const password = values.password;
 
       if (values.mode === "login") {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) {
-          setFormError(getAuthErrorMessage(error.message));
-          return;
-        }
-
-        if (!data.session) {
-          setFormError("Sesi tidak dapat dibuat. Coba masuk kembali.");
-          return;
-        }
-
-        const profile = await getCurrentProfile(data.session.user.id);
-
-        // No profile row / deactivated account: don't carry the session into the
-        // app, and let them know to contact the store admin instead of looping.
-        if (!profile || !profile.isActive) {
-          await supabase.auth.signOut();
-          setFormError(
-            "Akun ini belum aktif atau belum terdaftar sebagai staf toko. Hubungi admin toko."
-          );
-          return;
-        }
-
-        router.replace(landingFor(profile.role));
-        router.refresh();
+        await signIn(email, password);
         return;
       }
 
@@ -184,7 +232,7 @@ export function LoginForm() {
   });
 
   const isLogin = mode === "login";
-  const busy = isSubmitting;
+  const busy = isSubmitting || demoBusy;
 
   return (
     <div className="space-y-6">
@@ -424,6 +472,36 @@ export function LoginForm() {
             </>
           )}
         </Button>
+
+        {demoAccount && isLogin && (
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center gap-3" aria-hidden="true">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                atau
+              </span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              disabled={busy}
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-warning/40 bg-warning/10 text-xs font-semibold text-warning-foreground transition-colors hover:bg-warning/20 disabled:opacity-60"
+            >
+              {demoBusy ? (
+                <LuLoaderCircle size={15} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <LuFlaskConical size={15} aria-hidden="true" />
+              )}
+              {demoBusy ? "Membuka mode demo..." : "Masuk sebagai demo"}
+            </button>
+
+            <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+              Mode demo memakai database uji coba — data aman untuk dicoba.
+            </p>
+          </div>
+        )}
       </form>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   LuSearch,
   LuX,
@@ -572,11 +573,12 @@ export function PosTerminal() {
                     )}
                     {getPrimaryImageUrl(product) ? (
                       <span className="pos-card-thumb">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- Supabase Storage URL */}
-                        <img
+                        <Image
                           src={getPrimaryImageUrl(product) as string}
                           alt={product.name}
-                          loading="lazy"
+                          fill
+                          sizes="(max-width: 640px) 45vw, 220px"
+                          className="object-cover"
                         />
                       </span>
                     ) : (

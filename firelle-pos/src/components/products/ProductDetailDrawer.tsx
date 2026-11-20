@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import {
   LuTriangleAlert,
   LuHistory,
@@ -91,12 +92,13 @@ export function ProductDetailDrawer({
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="overflow-hidden rounded-xl border border-border/80 bg-secondary/30">
-                {/* eslint-disable-next-line @next/next/no-img-element -- Supabase Storage URL */}
-                <img
+              <div className="relative aspect-4/3 w-full overflow-hidden rounded-xl border border-border/80 bg-secondary/30">
+                <Image
                   src={getPrimaryImageUrl(product) as string}
                   alt={product.name}
-                  className="aspect-4/3 w-full object-cover"
+                  fill
+                  sizes="(max-width: 640px) 100vw, 480px"
+                  className="object-cover"
                 />
               </div>
               {product.images.length > 1 && (
@@ -109,12 +111,12 @@ export function ProductDetailDrawer({
                         image.is_primary ? "border-primary" : "border-border/70"
                       )}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element -- Supabase Storage URL */}
-                      <img
+                      <Image
                         src={image.url}
                         alt={image.alt_text || product.name}
-                        className="size-full object-cover"
-                        loading="lazy"
+                        fill
+                        sizes="(max-width: 640px) 25vw, 120px"
+                        className="object-cover"
                       />
                     </div>
                   ))}

@@ -8,6 +8,7 @@ import type {
   UpdateProductInput,
 } from "@/types/product";
 import { createClient } from "./client";
+import { getSupabaseEnv } from "@/lib/env";
 import { listGallery } from "./product-images";
 
 export type AppRole = "ADMIN" | "CASHIER";
@@ -32,9 +33,7 @@ function toNumber(value: number | null | undefined): number {
 
 /** Public URL for a stored object path inside the gallery bucket. */
 function imagePublicUrl(storagePath: string): string {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!url) return "";
-  return `${url}/storage/v1/object/public/${BUCKET}/${storagePath}`;
+  return `${getSupabaseEnv().url}/storage/v1/object/public/${BUCKET}/${storagePath}`;
 }
 
 function mapImage(row: ImageRow): ProductImage {

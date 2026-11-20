@@ -621,6 +621,7 @@ body {
 }
 
 .product-thumb {
+  position: relative;
   width: 40px;
   height: 40px;
   border-radius: var(--radius-md);
@@ -2341,6 +2342,7 @@ input[type="number"] {
 }
 
 .pos-card-thumb {
+  position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
   border-radius: var(--radius-md);

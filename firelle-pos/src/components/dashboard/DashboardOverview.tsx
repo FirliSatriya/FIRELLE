@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   LuLayoutDashboard,
   LuRotateCcw,
@@ -376,8 +377,13 @@ export function DashboardOverview() {
                   >
                     <span className="product-thumb size-9 shrink-0">
                       {thumb ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- Supabase Storage URL
-                        <img src={thumb} alt={p.name} loading="lazy" />
+                        <Image
+                          src={thumb}
+                          alt={p.name}
+                          fill
+                          sizes="36px"
+                          className="object-cover"
+                        />
                       ) : (
                         <span className="product-thumb-empty" aria-hidden="true">
                           <LuPackage size={16} />

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useRef, useState } from "react";
+import Image from "next/image";
 import {
   LuImagePlus,
   LuStar,
@@ -160,12 +161,12 @@ export function ProductImageManager({
             key={image.id}
             className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-secondary/40"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element -- Supabase Storage URL */}
-            <img
+            <Image
               src={image.url}
               alt={image.alt_text || "Gambar produk"}
-              className="size-full object-cover"
-              loading="lazy"
+              fill
+              sizes="(max-width: 640px) 33vw, 160px"
+              className="object-cover"
             />
             {image.is_primary && (
               <span className="absolute left-1 top-1 inline-flex items-center gap-0.5 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
@@ -207,11 +208,14 @@ export function ProductImageManager({
             key={`${file.name}-${index}`}
             className="group relative aspect-square overflow-hidden rounded-lg border border-info/40 bg-info/10"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element -- local object URL */}
-            <img
+            {/* Local object URL preview — no optimizer, no remote pattern. */}
+            <Image
               src={URL.createObjectURL(file)}
               alt={file.name}
-              className="size-full object-cover opacity-70"
+              fill
+              unoptimized
+              sizes="(max-width: 640px) 33vw, 160px"
+              className="object-cover opacity-70"
             />
             <span className="absolute inset-x-0 bottom-0 bg-info/80 px-1 py-0.5 text-center text-[10px] font-medium text-white">
               Belum diunggah

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { getDemoAccount } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "Masuk — Firelle POS",
@@ -8,6 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function LoginPage() {
+  // Null outside `APP_MODE=demo`, so the quick-login button never renders in
+  // production and the credentials never enter the client bundle there.
+  const demoAccount = getDemoAccount();
+
   return (
     <main className="login-hero flex min-h-svh flex-col">
       <div className="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-4 py-10 sm:px-6 lg:py-14">
@@ -20,6 +25,7 @@ export default function LoginPage() {
               height={50}
               className="h-11 w-auto object-contain"
               priority
+              unoptimized
             />
             <p className="font-heading text-3xl font-semibold leading-none tracking-tight text-foreground">
               FIRÉLLE
@@ -28,7 +34,7 @@ export default function LoginPage() {
 
           <div className="w-full max-w-md">
             <div className="rounded-2xl border border-border bg-card p-6 shadow-warm-lg sm:p-8">
-              <LoginForm />
+              <LoginForm demoAccount={demoAccount} />
             </div>
 
             <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground">

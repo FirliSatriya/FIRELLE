@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   LuPackage,
   LuDownload,
@@ -581,11 +582,12 @@ export function ProductCatalog() {
                     <td>
                       <div className="product-thumb">
                         {getPrimaryImageUrl(product) ? (
-                          // eslint-disable-next-line @next/next/no-img-element -- Supabase Storage URL
-                          <img
+                          <Image
                             src={getPrimaryImageUrl(product) as string}
                             alt={product.name}
-                            loading="lazy"
+                            fill
+                            sizes="40px"
+                            className="object-cover"
                           />
                         ) : (
                           <span className="product-thumb-empty" aria-hidden="true">

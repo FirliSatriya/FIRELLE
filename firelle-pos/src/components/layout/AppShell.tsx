@@ -145,6 +145,7 @@ export function AppShell({
               height={32}
               className="h-8 w-auto object-contain"
               priority
+              unoptimized
             />
             <span>FIRÉLLE</span>
           </div>
