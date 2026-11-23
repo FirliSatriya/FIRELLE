@@ -19,7 +19,7 @@ import {
 } from "@/types/product";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
-import { listGallery } from "@/lib/supabase/product-images";
+import { listGallery } from "@/lib/data/product-images";
 import {
   Dialog,
   DialogContent,

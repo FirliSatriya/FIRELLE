@@ -3,8 +3,9 @@ import "./globals.css";
 import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { AppModeProvider } from "@/components/providers/AppModeProvider";
 import { DemoModeBanner } from "@/components/demo/DemoModeBanner";
-import { isDemoMode } from "@/lib/env";
+import { appMode, isDemoMode } from "@/lib/env";
 
 const cormorantGaramond = Cormorant_Garamond({
   subsets: ["latin"],
@@ -38,6 +39,7 @@ export default function RootLayout({
 }) {
   // Server-only: `APP_MODE` never reaches the client bundle.
   const demo = isDemoMode();
+  const mode = appMode();
 
   return (
     <html
@@ -50,8 +52,10 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <QueryProvider>{children}</QueryProvider>
-        {demo && <DemoModeBanner />}
+        <AppModeProvider mode={mode}>
+          <QueryProvider>{children}</QueryProvider>
+          {demo && <DemoModeBanner />}
+        </AppModeProvider>
       </body>
     </html>
   );

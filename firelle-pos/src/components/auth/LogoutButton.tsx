@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { LuLogOut } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
+import { signOut } from "@/lib/auth";
 
 export function LogoutButton() {
   const router = useRouter();
@@ -13,7 +13,7 @@ export function LogoutButton() {
   const handleLogout = async () => {
     setLoading(true);
     try {
-      await createClient().auth.signOut();
+      await signOut();
     } finally {
       router.replace("/login");
       router.refresh();

@@ -32,12 +32,12 @@ import { formatDateWIB, cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { useSession } from "@/lib/session";
 import { useLiveQuery } from "@/lib/use-live-query";
-import { listProducts } from "@/lib/supabase/products";
-import { listTransactions } from "@/lib/supabase/transactions";
+import { listProducts } from "@/lib/data/products";
+import { listTransactions } from "@/lib/data/transactions";
 import {
   getCashflowSummary,
   type CashflowSummary,
-} from "@/lib/supabase/finance";
+} from "@/lib/data/finance";
 import { resolveDateRange } from "@/types/finance";
 import { Button } from "@/components/ui/button";
 import { MoneyText } from "@/components/ui/money-text";

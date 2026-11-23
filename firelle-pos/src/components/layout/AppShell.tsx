@@ -17,7 +17,7 @@ import {
 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/session";
-import type { AppRole } from "@/lib/supabase/products";
+import type { AppRole } from "@/lib/auth";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 
 interface NavItem {

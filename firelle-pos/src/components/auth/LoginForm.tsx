@@ -18,36 +18,31 @@ import {
 } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/client";
+import { isDemoMode } from "@/lib/app-mode";
+import {
+  getAuthProfile,
+  getAuthSession,
+  signIn,
+  signOut,
+  signUp,
+} from "@/lib/auth";
+import { DEMO_ACCOUNT } from "@/lib/demo/account";
 import { getAuthErrorMessage } from "@/lib/errors";
-import { getCurrentProfile } from "@/lib/supabase/products";
 import { landingFor } from "@/lib/session";
 import { authFormSchema, type AuthFormValues, type AuthMode } from "@/lib/validations/auth";
 import { cn } from "@/lib/utils";
 
 type Mode = AuthMode;
 
-interface DemoAccount {
-  email: string;
-  password: string;
-}
-
-interface LoginFormProps {
-  /**
-   * Kredensial demo dari `.env.local` (hanya diisi saat `APP_MODE=demo`).
-   * Null/undefined menyembunyikan tombol masuk cepat, jadi production tidak
-   * pernah menampilkan jalan pintas ini.
-   */
-  demoAccount?: DemoAccount | null;
-}
-
-export function LoginForm({ demoAccount = null }: LoginFormProps) {
+export function LoginForm() {
   const router = useRouter();
   const [mode, setMode] = React.useState<Mode>("login");
   const [showPassword, setShowPassword] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [demoBusy, setDemoBusy] = React.useState(false);
+  // Tombol demo hanya tampil saat APP_MODE=demo (dibaca dari provider server).
+  const demoEnabled = isDemoMode();
 
   const {
     register,
@@ -65,16 +60,13 @@ export function LoginForm({ demoAccount = null }: LoginFormProps) {
   // Already signed in? Skip the form and land on the right page for the role.
   React.useEffect(() => {
     let active = true;
-    const supabase = createClient();
 
     void (async () => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        const session = await getAuthSession();
         if (!active || !session) return;
 
-        const profile = await getCurrentProfile(session.user.id);
+        const profile = await getAuthProfile(session.id);
         if (!active) return;
 
         // Only a valid, active account skips the login form. A dangling session
@@ -84,7 +76,7 @@ export function LoginForm({ demoAccount = null }: LoginFormProps) {
           return;
         }
 
-        await supabase.auth.signOut();
+        await signOut();
       } catch {
         /* ignore: show the form instead */
       }
@@ -112,32 +104,17 @@ export function LoginForm({ demoAccount = null }: LoginFormProps) {
 
   /**
    * Satu-satunya jalur masuk. Dipakai form dan tombol demo supaya aturan
-   * aktivasi akun tetap sama di kedua pintu.
+   * aktivasi akun tetap sama di kedua pintu (Supabase atau demo).
    */
-  const signIn = async (email: string, password: string) => {
+  const handleSignIn = async (email: string, password: string) => {
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        setFormError(getAuthErrorMessage(error.message));
-        return;
-      }
-
-      if (!data.session) {
-        setFormError("Sesi tidak dapat dibuat. Coba masuk kembali.");
-        return;
-      }
-
-      const profile = await getCurrentProfile(data.session.user.id);
+      const user = await signIn(email, password);
+      const profile = await getAuthProfile(user.id);
 
       // No profile row / deactivated account: don't carry the session into the
       // app, and let them know to contact the store admin instead of looping.
       if (!profile || !profile.isActive) {
-        await supabase.auth.signOut();
+        await signOut();
         setFormError(
           "Akun ini belum aktif atau belum terdaftar sebagai staf toko. Hubungi admin toko."
         );
@@ -154,7 +131,7 @@ export function LoginForm({ demoAccount = null }: LoginFormProps) {
   };
 
   const handleDemoLogin = async () => {
-    if (!demoAccount || demoBusy || isSubmitting) return;
+    if (!demoEnabled || demoBusy || isSubmitting) return;
 
     setFormError(null);
     setNotice(null);
@@ -162,11 +139,11 @@ export function LoginForm({ demoAccount = null }: LoginFormProps) {
 
     // Tampilkan kredensial di form agar jelas akun mana yang dipakai.
     applyMode("login");
-    setValue("email", demoAccount.email);
-    setValue("password", demoAccount.password);
+    setValue("email", DEMO_ACCOUNT.email);
+    setValue("password", DEMO_ACCOUNT.password);
     clearErrors();
 
-    await signIn(demoAccount.email, demoAccount.password);
+    await handleSignIn(DEMO_ACCOUNT.email, DEMO_ACCOUNT.password);
     setDemoBusy(false);
   };
 
@@ -175,55 +152,47 @@ export function LoginForm({ demoAccount = null }: LoginFormProps) {
     setNotice(null);
 
     try {
-      const supabase = createClient();
       const email = values.email.trim();
       const password = values.password;
 
       if (values.mode === "login") {
-        await signIn(email, password);
+        await handleSignIn(email, password);
         return;
       }
 
       const fullName = values.fullName.trim();
+      const result = await signUp(email, password, fullName);
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } },
-      });
-
-      if (error) {
-        setFormError(getAuthErrorMessage(error.message));
+      // Production dengan konfirmasi email aktif: akun dibuat tanpa sesi.
+      if (result.needsConfirmation) {
+        setNotice(
+          "Akun berhasil dibuat. Cek inbox email Anda untuk konfirmasi, lalu masuk kembali."
+        );
+        applyMode("login");
+        setShowPassword(false);
+        resetField("password", { defaultValue: "" });
+        clearErrors();
         return;
       }
 
-      if (data.session) {
-        const profile = await getCurrentProfile(data.session.user.id);
+      const profile = result.user
+        ? await getAuthProfile(result.user.id)
+        : null;
 
-        if (!profile || !profile.isActive) {
-          await supabase.auth.signOut();
-          setNotice(
-            "Akun berhasil dibuat. Tunggu aktivasi dari admin toko sebelum masuk."
-          );
-          applyMode("login");
-          setShowPassword(false);
-          resetField("password", { defaultValue: "" });
-          clearErrors();
-          return;
-        }
-
-        router.replace(landingFor(profile.role));
-        router.refresh();
+      if (!profile || !profile.isActive) {
+        await signOut();
+        setNotice(
+          "Akun berhasil dibuat. Tunggu aktivasi dari admin toko sebelum masuk."
+        );
+        applyMode("login");
+        setShowPassword(false);
+        resetField("password", { defaultValue: "" });
+        clearErrors();
         return;
       }
 
-      setNotice(
-        "Akun berhasil dibuat. Cek inbox email Anda untuk konfirmasi, lalu masuk kembali."
-      );
-      applyMode("login");
-      setShowPassword(false);
-      resetField("password", { defaultValue: "" });
-      clearErrors();
+      router.replace(landingFor(profile.role));
+      router.refresh();
     } catch (err) {
       setFormError(
         getAuthErrorMessage(err instanceof Error ? err.message : String(err))
@@ -473,7 +442,7 @@ export function LoginForm({ demoAccount = null }: LoginFormProps) {
           )}
         </Button>
 
-        {demoAccount && isLogin && (
+        {demoEnabled && isLogin && (
           <div className="space-y-3 pt-1">
             <div className="flex items-center gap-3" aria-hidden="true">
               <span className="h-px flex-1 bg-border" />
@@ -498,7 +467,8 @@ export function LoginForm({ demoAccount = null }: LoginFormProps) {
             </button>
 
             <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-              Mode demo memakai database uji coba — data aman untuk dicoba.
+              Mode demo memakai data contoh di memori browser — bebas dicoba,
+              tidak tersimpan ke database.
             </p>
           </div>
         )}

@@ -3,11 +3,13 @@
 Database schema, business RPCs, RLS, cashier-safe views, seed data and SQL
 tests for the Firelle POS/ERP.
 
-The product catalog is wired to this layer through the browser Supabase client
-(`src/lib/supabase/`): reads come from `products_admin` (ADMIN) or
-`products_cashier` (CASHIER), writes go through the `products` table and
-`adjust_stock()` RPC. Supabase Auth is required because `anon` has no access;
-the first registered user becomes ADMIN (see the auth trigger migration).
+The app reaches this layer through the browser Supabase client in
+`src/lib/supabase/`, behind the `src/lib/data/*` facades. In `production` mode the
+facades call Supabase (Auth included); in `demo` mode they call the hardcoded
+in-memory implementation in `src/lib/demo/` instead, so no Supabase project is
+needed or contacted. Supabase Auth is required in production because `anon` has
+no access; the first registered user becomes ADMIN (see the auth trigger
+migration).
 
 ---
 
@@ -178,6 +180,18 @@ No clients are seeded: every sale needs a real customer.
 
 It runs automatically on `db reset`; on a linked project use
 `npx supabase db push --include-seed`.
+
+---
+
+## Demo mode
+
+The `demo` deploy (`APP_MODE=demo`, same `main` branch) does **not** use this
+Supabase layer at all. Demo products, clients, sales, cashflows, settings and
+image gallery live in a hardcoded in-memory store in `src/lib/demo/`; writes
+survive only until the browser page is reloaded and are never persisted to any
+database. The demo login is `demo@firelle.com` / `demo12345` (hardcoded; session
+in `sessionStorage`). No SQL seed is required for demo, and no demo data should
+ever be loaded into a production database.
 
 ---
 

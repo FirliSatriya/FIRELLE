@@ -38,13 +38,13 @@ import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { useDebouncedSearch } from "@/lib/hooks";
 import { useSession, useStoreSettings } from "@/lib/session";
-import { listProducts } from "@/lib/supabase/products";
+import { listProducts } from "@/lib/data/products";
 import {
   createClientRecord,
   createTransaction,
   listClients,
   listTransactionItems,
-} from "@/lib/supabase/transactions";
+} from "@/lib/data/transactions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {

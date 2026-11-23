@@ -11,14 +11,9 @@ import { createClient } from "./client";
 import { getSupabaseEnv } from "@/lib/env";
 import { listGallery } from "./product-images";
 
-export type AppRole = "ADMIN" | "CASHIER";
+import type { AppRole, CurrentProfile } from "@/types/auth";
 
-export interface CurrentProfile {
-  id: string;
-  fullName: string;
-  role: AppRole;
-  isActive: boolean;
-}
+export type { AppRole, CurrentProfile };
 
 type ProductAdminRow = Database["public"]["Views"]["products_admin"]["Row"];
 type ProductCashierRow = Database["public"]["Views"]["products_cashier"]["Row"];

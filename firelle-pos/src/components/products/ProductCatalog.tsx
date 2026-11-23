@@ -40,21 +40,19 @@ import {
 import { cn } from "@/lib/utils";
 import { useDebouncedSearch, usePagination } from "@/lib/hooks";
 import { getErrorMessage } from "@/lib/errors";
-import { createClient } from "@/lib/supabase/client";
+import { useSession } from "@/lib/session";
 import {
-  AppRole,
   adjustStock,
   archiveProduct,
   createProduct,
   deleteProductPermanently,
-  getCurrentProfile,
   listProducts,
   listStockMovements,
   restoreProduct,
   updateProduct,
-} from "@/lib/supabase/products";
+} from "@/lib/data/products";
 import { StockBadge } from "./StockBadge";
-import { uploadProductImage } from "@/lib/supabase/product-images";
+import { uploadProductImage } from "@/lib/data/product-images";
 import { CreateProductDialog } from "./CreateProductDialog";
 import { EditProductDialog } from "./EditProductDialog";
 import { StockAdjustmentDialog } from "./StockAdjustmentDialog";
@@ -96,10 +94,10 @@ function SortIcon({
 
 export function ProductCatalog() {
   const router = useRouter();
+  const { ready, role } = useSession();
 
   // ─── State ─────────────────────────────────────
   const [products, setProducts] = useState<Product[]>([]);
-  const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -120,61 +118,33 @@ export function ProductCatalog() {
 
   const canManage = role === "ADMIN";
 
-  // ─── Load session, profile, and products ───────
+  // ─── Load products once the session/profile is ready ───
   useEffect(() => {
+    if (!ready || !role) return;
+
+    // Product management is ADMIN-only (RBAC §2). Cashiers belong on the POS.
+    if (role !== "ADMIN") {
+      router.replace("/pos");
+      return;
+    }
+
     let active = true;
-    const supabase = createClient();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") router.replace("/login");
-    });
-
-    const load = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!active) return;
-        if (!session) {
-          router.replace("/login");
-          return;
-        }
-
-        const profile = await getCurrentProfile(session.user.id);
-        if (!active) return;
-
-        if (!profile || !profile.isActive) {
-          await supabase.auth.signOut();
-          router.replace("/login");
-          return;
-        }
-
-        // Product management is ADMIN-only (RBAC §2). Cashiers belong on the POS.
-        if (profile.role !== "ADMIN") {
-          router.replace("/pos");
-          return;
-        }
-
-        setRole(profile.role);
-        const data = await listProducts(profile.role);
+    listProducts(role)
+      .then((data) => {
         if (active) setProducts(data);
-      } catch (err) {
+      })
+      .catch((err) => {
         if (active) setLoadError(getErrorMessage(err));
-      } finally {
+      })
+      .finally(() => {
         if (active) setLoading(false);
-      }
-    };
-
-    void load();
+      });
 
     return () => {
       active = false;
-      subscription.unsubscribe();
     };
-  }, [router]);
+  }, [ready, role, router]);
 
   const refreshProducts = useCallback(async () => {
     if (!role) return;

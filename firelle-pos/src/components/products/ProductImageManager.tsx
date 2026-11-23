@@ -20,7 +20,7 @@ import {
   deleteProductImage,
   setPrimaryProductImage,
   uploadProductImage,
-} from "@/lib/supabase/product-images";
+} from "@/lib/data/product-images";
 import { Button } from "@/components/ui/button";
 
 interface ProductImageManagerProps {

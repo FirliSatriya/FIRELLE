@@ -28,7 +28,7 @@ import {
   listTransactions,
   listTransactionItems,
   voidTransaction,
-} from "@/lib/supabase/transactions";
+} from "@/lib/data/transactions";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Input } from "@/components/ui/input";

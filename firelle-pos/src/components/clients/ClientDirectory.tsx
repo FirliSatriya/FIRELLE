@@ -13,7 +13,6 @@ import {
   LuPencil,
   LuArchive,
   LuEye,
-  LuPhone,
   LuChevronsUpDown,
   LuArrowUp,
   LuArrowDown,
@@ -38,7 +37,7 @@ import {
   listClientsSorted,
   restoreClient,
   updateClient,
-} from "@/lib/supabase/clients";
+} from "@/lib/data/clients";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,7 +98,7 @@ export function ClientDirectory() {
   // Detail drawer
   const [detailClient, setDetailClient] = useState<Client | null>(null);
   const [detailTransactions, setDetailTransactions] = useState<Transaction[]>([]);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [loadedDetailId, setLoadedDetailId] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     setLoadError(null);
@@ -135,16 +134,19 @@ export function ClientDirectory() {
   useEffect(() => {
     if (!detailClient) return;
     let active = true;
-    setDetailLoading(true);
 
     void (async () => {
       try {
         const data = await listClientTransactions(detailClient.id);
-        if (active) setDetailTransactions(data as Transaction[]);
+        if (active) {
+          setDetailTransactions(data as Transaction[]);
+          setLoadedDetailId(detailClient.id);
+        }
       } catch (err) {
-        if (active) setActionError(getErrorMessage(err));
-      } finally {
-        if (active) setDetailLoading(false);
+        if (active) {
+          setActionError(getErrorMessage(err));
+          setLoadedDetailId(detailClient.id);
+        }
       }
     })();
 
@@ -152,6 +154,8 @@ export function ClientDirectory() {
       active = false;
     };
   }, [detailClient]);
+
+  const detailLoading = detailClient !== null && loadedDetailId !== detailClient.id;
 
   // ─── Filtered list ─────────────────────────────
   const filtered = useMemo(() => {

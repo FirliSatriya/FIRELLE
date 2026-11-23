@@ -44,7 +44,7 @@ import {
   listCashflows,
   updateCashflow,
   type CashflowSummary,
-} from "@/lib/supabase/finance";
+} from "@/lib/data/finance";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { DatePicker } from "@/components/ui/date-picker";

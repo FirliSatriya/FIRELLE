@@ -10,8 +10,8 @@ let client: SupabaseClient<Database> | null = null;
  * The session is stored in cookies so it can also be read by server code later.
  *
  * The URL and publishable key come exclusively from `NEXT_PUBLIC_*` env vars
- * (see `src/lib/env.ts`), so the `main` and `demo` branches can share one
- * codebase and differ only by `.env.local`.
+ * (see `src/lib/env.ts`). In `APP_MODE=demo` this client is never called at
+ * all; the data facades route to the in-memory demo store instead.
  */
 export function createClient(): SupabaseClient<Database> {
   if (client) return client;

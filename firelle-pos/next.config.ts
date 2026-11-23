@@ -2,9 +2,9 @@ import type { NextConfig } from "next";
 import { supabaseHostname } from "./src/lib/env";
 
 /**
- * Supabase Storage host is derived from `NEXT_PUBLIC_SUPABASE_URL` so that
- * `main` (production) and `demo` can point at different Supabase projects
- * without touching this file.
+ * Supabase Storage host is derived from `NEXT_PUBLIC_SUPABASE_URL` so the
+ * production deploy can point at a different Supabase project without touching
+ * this file. The demo deploy (`APP_MODE=demo`) never loads remote images.
  */
 const storageHostname = supabaseHostname();
 

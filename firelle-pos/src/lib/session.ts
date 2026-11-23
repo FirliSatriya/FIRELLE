@@ -2,8 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { getCurrentProfile, type AppRole, type CurrentProfile } from "@/lib/supabase/products";
+import {
+  getAuthProfile,
+  getAuthSession,
+  signOut,
+  subscribeAuth,
+  type AppRole,
+  type CurrentProfile,
+} from "@/lib/auth";
+import { getStoreSettings } from "@/lib/data/settings";
 import { LOGIN_PATH, landingFor } from "@/lib/navigation";
 
 export { LOGIN_PATH, landingFor };
@@ -16,14 +23,12 @@ export interface SessionState {
 }
 
 /**
- * Resolves the Supabase session + the caller's profile row and redirects to
- * `/login` when there is no session or the account is deactivated.
+ * Resolves the active session + the caller's profile and redirects to `/login`
+ * when there is no session or the account is deactivated.
  *
  * `ready` is true once the session has been resolved, so pages can hold off
  * their data queries until the profile (and therefore the RLS context) is
- * known. The hook is safe to call from several components at once: each call
- * only ever reflects *its own* resolution, and a sign-out redirects rather
- * than poisoning shared state.
+ * known. Production reads Supabase; demo reads the in-memory demo users.
  */
 export function useSession() {
   const router = useRouter();
@@ -36,10 +41,7 @@ export function useSession() {
   });
 
   const reload = useCallback(async () => {
-    const supabase = createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const session = await getAuthSession();
 
     if (!session) {
       setState({ loading: false, userId: null, profile: null, role: null });
@@ -47,10 +49,10 @@ export function useSession() {
       return null;
     }
 
-    const profile = await getCurrentProfile(session.user.id);
+    const profile = await getAuthProfile(session.id);
 
     if (!profile || !profile.isActive) {
-      await supabase.auth.signOut();
+      await signOut();
       setState({ loading: false, userId: null, profile: null, role: null });
       router.replace(LOGIN_PATH);
       return null;
@@ -58,7 +60,7 @@ export function useSession() {
 
     setState({
       loading: false,
-      userId: session.user.id,
+      userId: session.id,
       profile,
       role: profile.role,
     });
@@ -67,14 +69,10 @@ export function useSession() {
 
   useEffect(() => {
     let active = true;
-    const supabase = createClient();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      // SIGNED_OUT (or an invalidated token) is the only event that must end
-      // the session. TOKEN_REFRESHED / USER_UPDATED must not, or a still-valid
-      // cashier session would be mistaken for an expiry.
+    // SIGNED_OUT is the only event that must end the session. Token refreshes
+    // are intentionally ignored so a still-valid cashier session survives.
+    const unsubscribe = subscribeAuth((event) => {
       if (event === "SIGNED_OUT") {
         router.replace(LOGIN_PATH);
       }
@@ -90,7 +88,7 @@ export function useSession() {
 
     return () => {
       active = false;
-      subscription.unsubscribe();
+      unsubscribe();
     };
   }, [reload, router]);
 
@@ -113,14 +111,13 @@ export function useStoreSettings() {
 
   useEffect(() => {
     let active = true;
-    const supabase = createClient();
 
-    supabase
-      .from("settings")
-      .select("*")
-      .maybeSingle()
-      .then(({ data }) => {
-        if (active && data) setSettings(data as StoreSettings);
+    getStoreSettings()
+      .then((row) => {
+        if (active && row) setSettings(row);
+      })
+      .catch(() => {
+        /* receipts fall back to their defaults */
       });
 
     return () => {

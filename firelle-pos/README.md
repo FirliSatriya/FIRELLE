@@ -1,96 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Firelle POS
 
-## Getting Started
+Aplikasi POS/ERP untuk Firelle, dibangun dengan Next.js (App Router) dan Supabase.
 
-First, run the development server:
+## Menjalankan lokal
 
 ```bash
+cp .env.example .env.local        # macOS / Linux
+Copy-Item .env.example .env.local # Windows PowerShell
+
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Buka [http://localhost:3000](http://localhost:3000).
 
 ## Environment variables
 
-Semua konfigurasi Supabase dan mode aplikasi dibaca dari `.env.local` (disalin dari `.env.example`), bukan di-hardcode ke kode:
-
-```bash
-# macOS / Linux
-cp .env.example .env.local
-# Windows PowerShell
-Copy-Item .env.example .env.local
-```
+Semua konfigurasi dibaca dari `.env.local` (disalin dari `.env.example`), bukan di-hardcode ke komponen. File `.env*` tidak ikut di-commit kecuali `.env.example` (lihat `.gitignore`).
 
 | Variabel | Dipakai | Keterangan |
 |----------|---------|------------|
-| `APP_MODE` | Server | `production` atau `demo`. Selain `"demo"` (termasuk kosong) dianggap production — banner demo tidak pernah bocor ke production. |
-| `NEXT_PUBLIC_SUPABASE_URL` | Klien + server | Project Supabase yang berbeda per branch. Di-inline saat `next build`. |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Klien + server | Publishable key project Supabase (aman di bundle klien). |
-| `DEMO_EMAIL` | Server | Email akun demo (hanya aktif saat `APP_MODE=demo`). |
-| `DEMO_PASSWORD` | Server | Password akun demo (hanya aktif saat `APP_MODE=demo`). |
+| `APP_MODE` | Server | `demo` untuk mode demo, `production` (atau kosong/selain `demo`) untuk production. Nilai ini disuntikkan ke client lewat `AppModeProvider`, bukan diawali `NEXT_PUBLIC_`. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Klien + server | URL project Supabase produksi. Wajib di production; tidak dipakai di demo. Di-inline saat `next build`. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Klien + server | Publishable key project produksi (aman di bundle klien). Tidak dipakai di demo. |
 
-File `.env*` tidak ikut di-commit (kecuali `.env.example`, lihat `.gitignore`): itu sebabnya branch `main` dan `demo` bisa pakai kode 100% sama — hanya beda isi `.env.local` (URL Supabase yang berbeda + `APP_MODE`).
+Tidak ada `DEMO_EMAIL` / `DEMO_PASSWORD`. Akun demo (`demo@firelle.com` / `demo12345`) hardcoded di `src/lib/demo/account.ts` dan hanya hidup di browser.
 
-## Branch: `main` (production) vs `demo`
+## Satu branch, dua mode
 
-Branch `main` = production, branch `demo` = demo-mode. Perbedaan satu-satunya di antaranya adalah isi `.env.local` (koneksi Supabase yang berbeda + `APP_MODE=demo`), sehingga fitur baru yang di-merge `main → demo` tidak pernah merusak konfigurasi database masing-masing.
+Cukup **satu branch (`main`)** dan **satu kode sumber** untuk production maupun demo. Pembedanya hanya environment variable `APP_MODE` di masing-masing project deploy:
 
-### Membuat branch `demo` dari `main`
+| Project deploy | Branch | `APP_MODE` | Data & auth |
+|----------------|--------|------------|-------------|
+| `firelle-pos-production` | `main` | `production` | Supabase project produksi |
+| `firelle-pos-demo` | `main` | `demo` | Hardcoded, in-memory di browser (tanpa Supabase) |
 
-```bash
-# Di dalam folder firelle-pos
-git checkout main && git pull origin main
-git checkout -b demo
+Keduanya di-import dari repo GitHub yang sama (`FirliSatriya/FIRELLE`) dengan Root Directory `firelle-pos` (`package.json` ada di folder ini, bukan di root repo). Push ke `main` men-deploy kedua project. Tidak ada branch `demo` lagi.
 
-# Tambahkan mode demo ke .env.local (file ini tidak pernah di-commit).
-# PowerShell:
-#   Add-Content .env.local "APP_MODE=demo"
-#   Add-Content .env.local "DEMO_EMAIL=demo@firelle.id"
-#   Add-Content .env.local "DEMO_PASSWORD=demo123"
-# Lalu ganti NEXT_PUBLIC_SUPABASE_URL / _PUBLISHABLE_KEY ke project Supabase demo.
+### Mode demo
 
-# Commit kode/konfigurasi yang memang dilacak git (.env.local otomatis diabaikan)
-git add .
-git commit -m "feat: demo branch from main"
-git push -u origin demo
-```
+- **Daftar barang demo hardcoded** sebagai array `PRODUCT_SEEDS` di `src/lib/demo/seed.ts`. Edit array itu untuk mengubah isi katalog demo; tidak ada seed SQL dan tidak ada koneksi Supabase.
+- Tombol **Masuk sebagai demo** tersedia di halaman login; kredensialnya sudah hardcoded, tidak perlu env var.
+- Semua data (produk, klien, transaksi, kas, pengaturan, galeri gambar) berada di memori browser dan **di-reset saat halaman di-reload**. Tidak ada yang ditulis ke Supabase, termasuk sesi login (tersimpan di `sessionStorage`).
+- Fitur demo setara production: katalog & manajemen produk, klien, POS (checkout/void), laporan keuangan, pengaturan toko, dan galeri gambar produk (object URL lokal).
+- Demo tidak membutuhkan Supabase yang bisa diakses; `NEXT_PUBLIC_SUPABASE_*` boleh dikosongkan.
 
-`DEMO_EMAIL`/`DEMO_PASSWORD` harus cocok dengan akun yang telah dibuat di project Supabase demo (Supabase Auth), bukan sekadar entri di `.env.local`.
+Arsitektur: komponen memanggil facade di `src/lib/data/*`. Facade memilih implementasi `src/lib/supabase/*` saat production atau `src/lib/demo/*` saat demo, berdasarkan mode yang disuntikkan `AppModeProvider` dari `appMode()` (server). `APP_MODE` tidak pernah dikirim sebagai `NEXT_PUBLIC_*`.
 
-### Sinkronisasi fitur dari `main` ke `demo`
+### Deploy (contoh: Vercel)
 
-Dikerjakan di branch `demo`:
+1. Import repo **dua kali**, beri nama `firelle-pos-production` dan `firelle-pos-demo`.
+2. Root Directory: `firelle-pos`. Framework Preset: Next.js (biarkan default).
+3. Production Branch: `main` di kedua project.
+4. Environment Variables — project **production**:
+   ```env
+   APP_MODE=production
+   NEXT_PUBLIC_SUPABASE_URL=<url Supabase produksi>
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<key Supabase produksi>
+   ```
+5. Environment Variables — project **demo**:
+   ```env
+   APP_MODE=demo
+   ```
+   (Supabase env boleh kosong.)
+6. Deploy keduanya. Arahkan `pos.firelle.id` ke project production dan `demo.firelle.id` ke project demo.
 
-```bash
-git checkout demo && git merge main
-```
+> Platform selain Vercel: prinsipnya sama — dua app/project dengan satu branch yang sama, dua set environment variable, dua domain.
 
-Hati-hati: jika merge menyentuh `src/lib/env.ts`, `next.config.ts`, atau koneksi Supabase, pastikan tidak ada nilai konkret (URL/key) yang masuk ke kode. Konflik di `.env.local` tidak akan terjadi karena file itu diabaikan git — perbedaan koneksi tiap branch tetap aman. Jika `.env.example` berkonflik, pertahankan gabungan kedua sisi (nama variabel, bukan nilainya).
+### Alur kerja sehari-hari
 
-Di sisi deployment, set `APP_MODE=demo` (dan URL Supabase demo) di variabel lingkungan platform deploy, dan `APP_MODE=production` untuk branch `main`.
+- Semua perubahan masuk ke `main`; kedua project ikut ter-deploy otomatis.
+- Cek hasil: banner dan tombol "Masuk sebagai demo" hanya boleh muncul di deploy dengan `APP_MODE=demo`.
+- Demo tidak memakai database: jangan pernah menjalankan seed demo ke project Supabase produksi.
 
+## Supabase
+
+Schema, migrasi, RLS, RPC, seed, dan tes database ada di [`supabase/README.md`](supabase/README.md). Seed SQL hanya dipakai untuk project **production**; data demo tidak lagi berasal dari SQL.

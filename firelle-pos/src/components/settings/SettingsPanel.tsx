@@ -20,7 +20,7 @@ import {
   RECEIPT_PAPER_OPTIONS,
   type ReceiptPaper,
   type StoreSettingsRow,
-} from "@/lib/supabase/settings";
+} from "@/lib/data/settings";
 import { Button } from "@/components/ui/button";
 import {
   Select,

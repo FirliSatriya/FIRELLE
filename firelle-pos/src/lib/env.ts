@@ -3,13 +3,15 @@
  *
  * Semua koneksi database (Supabase URL + publishable key) dan penanda mode
  * dibaca dari sini — tidak ada URL/API key yang di-hardcode di komponen mana
- * pun. Dengan begitu branch `main` (production) dan `demo` bisa memakai kode
- * yang 100% sama dan hanya berbeda isi `.env.local`.
+ * pun. Satu branch untuk semua mode: production memakai Supabase, demo memakai
+ * data hardcoded di memori browser. Beda hanya environment variable `APP_MODE`
+ * yang diset di masing-masing project deploy. Lihat README.md → "Deploy".
  *
  * Catatan Next.js:
  * - `NEXT_PUBLIC_*` di-inline saat build, jadi aman dipakai di client.
- * - `APP_MODE`, `DEMO_EMAIL`, `DEMO_PASSWORD` hanya ada di server. Baca nilai
- *   itu dari Server Component lalu turunkan sebagai prop ke client component.
+ * - `APP_MODE` hanya ada di server. Nilainya disuntikkan oleh Server Component
+ *   lewat `AppModeProvider` ke client — tidak pernah di-bundle sebagai
+ *   `NEXT_PUBLIC_*`, dan tidak ada kredensial demo dari environment.
  */
 
 /** Nilai `APP_MODE` yang dikenali. Selain "demo" selalu dianggap production. */
@@ -66,24 +68,3 @@ export function supabaseHostname(): string | null {
   }
 }
 
-export interface DemoAccount {
-  email: string;
-  password: string;
-}
-
-/**
- * Akun demo untuk tombol login cepat.
- *
- * Hanya dikembalikan saat `APP_MODE=demo`, jadi build production tidak pernah
- * membawa kredensial demo ke bundle. Null berarti tombolnya tidak ditampilkan.
- */
-export function getDemoAccount(): DemoAccount | null {
-  if (!isDemoMode()) return null;
-
-  const email = process.env.DEMO_EMAIL?.trim();
-  const password = process.env.DEMO_PASSWORD;
-
-  if (!email || !password) return null;
-
-  return { email, password };
-}
