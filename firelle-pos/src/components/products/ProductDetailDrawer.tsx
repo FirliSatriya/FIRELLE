@@ -22,7 +22,7 @@ import {
   isDecimalUnit,
   getPrimaryImageUrl,
 } from "@/types/product";
-import { MOVEMENT_TYPE_LABELS, REASON_LABELS } from "@/lib/mock-data";
+import { MOVEMENT_TYPE_LABELS, REASON_LABELS } from "@/lib/stock-labels";
 import { formatDateWIB, cn } from "@/lib/utils";
 import { StockBadge } from "./StockBadge";
 import {

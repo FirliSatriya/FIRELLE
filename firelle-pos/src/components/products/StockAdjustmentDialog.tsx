@@ -14,7 +14,7 @@ import {
   formatNumber,
   isDecimalUnit,
 } from "@/types/product";
-import { REASON_LABELS } from "@/lib/mock-data";
+import { REASON_LABELS } from "@/lib/stock-labels";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import {
